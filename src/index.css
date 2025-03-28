@@ -1,0 +1,209 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 37 92% 50%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 199 89% 48%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 294 81% 61%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 224 76% 48%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 37 92% 50%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: "Inter", sans-serif;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased overflow-x-hidden min-h-screen;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Playfair Display", serif;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/10 backdrop-blur-md border border-white/20 shadow-glass;
+  }
+
+  .glass-card-dark {
+    @apply bg-black/20 backdrop-blur-md border border-white/10 shadow-glass;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .chess-btn {
+    @apply relative overflow-hidden inline-flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-all duration-300 ease-out;
+  }
+
+  .chess-btn::after {
+    @apply content-[''] absolute top-0 left-0 w-full h-full bg-gradient-shine bg-[length:200%_100%] animate-shine opacity-0 transition-opacity duration-300;
+  }
+
+  .chess-btn:hover::after {
+    @apply opacity-100;
+  }
+
+  .primary-btn {
+    @apply chess-btn bg-chess-gold text-chess-dark hover:bg-chess-gold/90 hover:shadow-neon;
+  }
+
+  .secondary-btn {
+    @apply chess-btn bg-chess-secondary text-white hover:bg-chess-secondary/90 hover:shadow-neon-blue;
+  }
+
+  .outline-btn {
+    @apply chess-btn bg-transparent border-2 border-chess-gold text-chess-gold hover:bg-chess-gold/10;
+  }
+
+  .text-shine {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-chess-gold via-white to-chess-secondary animate-shine bg-[length:200%_auto];
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-2 hover:shadow-lg;
+  }
+
+  .chess-gradient {
+    @apply bg-gradient-to-br from-chess-gold via-chess-secondary to-chess-accent;
+  }
+
+  .section-padding {
+    @apply py-16 px-6 md:px-12 lg:px-24;
+  }
+
+  .chess-board-bg {
+    background-image: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.05) 25%,
+        transparent 25%,
+        transparent 75%,
+        rgba(255, 255, 255, 0.05) 75%,
+        rgba(255, 255, 255, 0.05)
+      ),
+      linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.05) 25%,
+        transparent 25%,
+        transparent 75%,
+        rgba(255, 255, 255, 0.05) 75%,
+        rgba(255, 255, 255, 0.05)
+      );
+    background-size: 30px 30px;
+    background-position: 0 0, 15px 15px;
+  }
+
+  .prize-glow {
+    @apply relative;
+  }
+
+  .prize-glow::before {
+    @apply content-[''] absolute -inset-0.5 bg-gradient-to-r from-chess-gold via-chess-secondary to-chess-accent rounded-lg blur opacity-75 transition duration-1000 animate-pulse-soft;
+  }
+
+  .prize-glow::after {
+    @apply content-[''] absolute inset-0 rounded-lg bg-background;
+  }
+
+  .prize-glow-content {
+    @apply relative z-10;
+  }
+}
+
+@layer utilities {
+  .backdrop-saturate-150 {
+    backdrop-filter: saturate(150%) blur(5px);
+  }
+
+  .backdrop-saturate-200 {
+    backdrop-filter: saturate(200%) blur(5px);
+  }
+
+  .text-shadow {
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  }
+
+  .text-shadow-lg {
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+}
