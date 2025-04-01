@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { cn } from "../lib/utils";
 import { Button } from "../components/ui/button";
-import { Trophy, Menu, X } from "lucide-react";
+import { Trophy, Menu, X, UserRound, LogOut } from "lucide-react";
+import { Link } from "react-router-dom";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "../components/ui/dropdown-menu";
+import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar";
 
 /**
  * Props for navigation link components.
@@ -14,15 +24,12 @@ interface NavLinkProps {
 
 /**
  * Desktop navigation link component.
- *
- * @param {NavLinkProps} props - Contains the href, child elements, and optional onClick handler.
- * @returns {JSX.Element} A styled navigation link.
  */
 const NavLink: React.FC<NavLinkProps> = ({ href, children }) => {
   return (
     <a
       href={href}
-      className="text-white/80 hover:text-chess-gold transition-colors duration-200 font-medium relative after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:w-0 after:bg-chess-gold after:transition-all after:duration-300 hover:after:w-full"
+      className="text-white/80 hover:text-chess-gold transition-colors duration-200 font-medium relative after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:w-0 after:bg-chess-gold after:transition-all after:duration-300 hover:after:w-full "
     >
       {children}
     </a>
@@ -31,9 +38,6 @@ const NavLink: React.FC<NavLinkProps> = ({ href, children }) => {
 
 /**
  * Mobile navigation link component.
- *
- * @param {NavLinkProps} props - Contains the href, child elements, and optional onClick handler.
- * @returns {JSX.Element} A styled mobile navigation link.
  */
 const MobileNavLink: React.FC<NavLinkProps> = ({ href, children, onClick }) => {
   return (
@@ -48,35 +52,90 @@ const MobileNavLink: React.FC<NavLinkProps> = ({ href, children, onClick }) => {
 };
 
 /**
+ * ProfileDropdown component renders a dropdown menu for authenticated users,
+ * including a logout option.
+ *
+ * @param {object} props
+ * @param {() => void} props.onLogout - Function to call when the user clicks the logout button.
+ * @returns {JSX.Element} The Profile dropdown menu.
+ */
+interface ProfileDropdownProps {
+  onLogout: () => void;
+}
+
+const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onLogout }) => {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          className="relative h-10 w-10 rounded-full hover:bg-yellow-700"
+        >
+          <Avatar className="h-10 w-10">
+            <AvatarImage src="/placeholder.svg" alt="User" />
+            <AvatarFallback className="bg-chess-gold/20 text-chess-gold">
+              <UserRound className="h-6 w-6" />
+            </AvatarFallback>
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal focus:bg-yellow-700">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">Player</p>
+            <p className="text-xs leading-none text-muted-foreground"></p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={onLogout}
+          className="cursor-pointer text-destructive"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Log out</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+/**
  * Navbar component that renders the navigation bar.
- *
- * @remarks
- * - Listens to the scroll event to update the background style.
- * - Provides different layouts for desktop and mobile views.
- *
- * @returns {JSX.Element} The rendered Navbar component.
  */
 const Navbar: React.FC = () => {
-  // State to track if the window has been scrolled to apply a background effect.
   const [isScrolled, setIsScrolled] = useState(false);
-  // State to toggle the mobile menu.
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // Local state to manage login status. In a real app, you might use a global state.
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  localStorage.setItem("authToken", "your-token-here");
 
-  // useEffect hook to add a scroll event listener on mount.
+  // On component mount, check for an auth token in localStorage.
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    setIsLoggedIn(!!token);
+  }, []);
+
+  // Listen for scroll events to update the navbar background.
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
     };
 
     window.addEventListener("scroll", handleScroll);
-    // Cleanup the event listener on component unmount.
     return () => {
       window.removeEventListener("scroll", handleScroll);
     };
   }, []);
 
+  /**
+   * handleLogout clears the auth token and updates the login state.
+   */
+  const handleLogout = () => {
+    localStorage.removeItem("authToken");
+    setIsLoggedIn(false);
+  };
+
   return (
-    // The <nav> element is fixed at the top with conditional styling based on scroll.
     <nav
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-300 py-4 px-6 md:px-12",
@@ -85,7 +144,6 @@ const Navbar: React.FC = () => {
           : "bg-transparent"
       )}
     >
-      {/* Container for the navbar content */}
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <a
           className="flex items-center space-x-2"
@@ -110,12 +168,29 @@ const Navbar: React.FC = () => {
             <Button className="primary-btn" size="sm">
               Play Now
             </Button>
-            <Button
-              className="bg-white/10 hover:bg-white/20 text-white border border-white/20"
-              size="sm"
-            >
-              Log In
-            </Button>
+            {isLoggedIn ? (
+              // Show the profile dropdown when logged in.
+              <ProfileDropdown onLogout={handleLogout} />
+            ) : (
+              <>
+                <Link to="/login">
+                  <Button
+                    className="bg-white/10 hover:bg-white/20 text-white border border-white/20"
+                    size="sm"
+                  >
+                    Log In
+                  </Button>
+                </Link>
+                <Link to="/register">
+                  <Button
+                    className="bg-white/10 hover:bg-white/20 text-white border border-white/20"
+                    size="sm"
+                  >
+                    Register
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
 
@@ -137,7 +212,7 @@ const Navbar: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile Menu (conditionally rendered when isMobileMenuOpen is true) */}
+      {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden absolute top-full left-0 right-0 bg-chess-dark/95 backdrop-blur-md shadow-lg animate-slide-down border-b border-white/10 p-4">
           <div className="flex flex-col space-y-4 py-2">
@@ -159,18 +234,47 @@ const Navbar: React.FC = () => {
             >
               How It Works
             </MobileNavLink>
+            <MobileNavLink
+              href="#contact"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Contact
+            </MobileNavLink>
 
             {/* Action buttons for mobile */}
             <div className="grid grid-cols-2 gap-3 pt-3">
               <Button className="primary-btn w-full" size="sm">
                 Play Now
               </Button>
-              <Button
-                className="bg-white/10 hover:bg-white/20 text-white border border-white/20 w-full"
-                size="sm"
-              >
-                Log In
-              </Button>
+              {isLoggedIn ? (
+                <Link to="/profile">
+                  <Button
+                    className="bg-white/10 hover:bg-white/20 text-white border border-white/20 w-full"
+                    size="sm"
+                  >
+                    Profile
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <Link to="/login">
+                    <Button
+                      className="bg-white/10 hover:bg-white/20 text-white border border-white/20 w-full"
+                      size="sm"
+                    >
+                      Log In
+                    </Button>
+                  </Link>
+                  <Link to="/register">
+                    <Button
+                      className="bg-white/10 hover:bg-white/20 text-white border border-white/20 w-full"
+                      size="sm"
+                    >
+                      Register
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -178,4 +282,5 @@ const Navbar: React.FC = () => {
     </nav>
   );
 };
+
 export default Navbar;

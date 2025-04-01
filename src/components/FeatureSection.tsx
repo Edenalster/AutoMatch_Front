@@ -8,6 +8,7 @@ import {
   Dice5,
   Trophy,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 /**
  * Props for the FeatureCard component.
@@ -131,15 +132,17 @@ const FeatureSection: React.FC = () => {
 
         {/* Grid of FeatureCard components */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          <FeatureCard
-            icon={<Shield className="text-chess-gold" />}
-            title="Advanced Anti-Cheat"
-            description="AI-powered cheat detection ensures fair play in all tournaments, maintaining integrity and trustworthiness."
-            accentColor="from-chess-gold/20 to-chess-gold/5"
-            iconBg="bg-chess-gold/10"
-            borderColor="border-chess-gold/20"
-            hoverColor="hover:border-chess-gold/40"
-          />
+          <Link to="/anti-cheat" className="block">
+            <FeatureCard
+              icon={<Shield className="text-chess-gold" />}
+              title="Advanced Anti-Cheat"
+              description="AI-powered cheat detection ensures fair play in all tournaments, maintaining integrity and trustworthiness."
+              accentColor="from-chess-gold/20 to-chess-gold/5"
+              iconBg="bg-chess-gold/10"
+              borderColor="border-chess-gold/20"
+              hoverColor="hover:border-chess-gold/40"
+            />
+          </Link>
 
           <FeatureCard
             icon={<Zap className="text-chess-warning" />}

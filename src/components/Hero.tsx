@@ -1,7 +1,7 @@
 import React from "react";
 import { Trophy, Shield, Zap } from "lucide-react";
 import { Button } from "./ui/button";
-
+import { Link } from "react-router-dom";
 /**
  * Props for the FeatureBadge component.
  */
@@ -93,10 +93,12 @@ const HeroSection: React.FC = () => {
               icon={<Trophy className="h-5 w-5" />}
               text="Prize Pools"
             />
-            <FeatureBadge
-              icon={<Shield className="h-5 w-5" />}
-              text="Anti-Cheat"
-            />
+            <Link to="/anti-cheat">
+              <FeatureBadge
+                icon={<Shield className="h-5 w-5" />}
+                text="Anti-Cheat"
+              />
+            </Link>
             <FeatureBadge
               icon={<Zap className="h-5 w-5" />}
               text="Live Matches"
