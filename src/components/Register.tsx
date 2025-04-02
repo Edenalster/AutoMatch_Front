@@ -6,15 +6,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 
-interface IUser {
-  email: string;
-  password?: string;
-  imgUrl?: string;
-  _id: string;
-  accessToken?: string;
-  refreshToken?: string;
-}
-
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
     email: "",
@@ -90,47 +81,43 @@ const Register: React.FC = () => {
     }
   };
 
-  const googleSignin = async (credentialResponse: CredentialResponse): Promise<IUser> => {
+  // Simplified OAuth handlers that share functionality with Login page
+  const onGoogleLoginSuccess = async (credentialResponse: CredentialResponse) => {
+    console.log("✅ Google authentication successful!", credentialResponse);
     try {
-      console.log("Google Signin!");
+      // Send the credential to your backend - same endpoint as login
       const res = await axios.post("http://localhost:3060/auth/google", credentialResponse);
-      console.log("Google Signin success!", res.data);
+      console.log("Google authentication success!", res.data);
 
       // Store tokens and user data
       if (res.data.accessToken) {
         localStorage.setItem("token", res.data.accessToken);
-        localStorage.setItem("user", JSON.stringify(res.data._id));
+        localStorage.setItem("user", JSON.stringify(res.data.email));
+        
+        // Store email separately for navbar
+        if (res.data.email) {
+          localStorage.setItem("email", res.data.email);
+        }
+        
+        // Redirect to home page
+        navigate("/");
       } else {
         console.warn("No accessToken received from backend!");
+        setMessage("Authentication failed. Please try again.");
       }
-
-      return res.data;
     } catch (error) {
-      console.error("Google Signin error!", error);
-      throw error;
-    }
-  };
-
-  const onGoogleLoginSuccess = async (credentialResponse: CredentialResponse) => {
-    console.log("✅ Google login successful!", credentialResponse);
-    try {
-      const res = await googleSignin(credentialResponse);
-      console.log("userID", res._id);
-      console.log("Google Signin success!", res);
-      navigate("/");
-    } catch (error) {
-      console.log("Google Signin error!", error);
-      setMessage("Google sign-in failed. Please try again.");
+      console.log("Google authentication error!", error);
+      setMessage("Google authentication failed. Please try again.");
     }
   };
 
   const onGoogleLoginError = () => {
-    console.error("🛑 Google login failed!");
-    setMessage("Google sign-in failed. Please try again or use email registration.");
+    console.error("🛑 Google authentication failed!");
+    setMessage("Google authentication failed. Please try again or use email registration.");
   };
 
-  const handleLichessSignUp = () => {
-    // Redirect to the lichess login endpoint
+  const handleLichessAuth = () => {
+    // Redirect to the lichess login endpoint - same as login
     window.location.href = "http://localhost:3060/auth/lichess/login";
   };
 
@@ -248,7 +235,7 @@ const Register: React.FC = () => {
               </div>
             </div>
 
-            {/* OAuth Buttons */}
+            {/* OAuth Buttons - Simplified but kept */}
             <div className="space-y-3 mb-6">
               <div
                 style={{
@@ -269,7 +256,7 @@ const Register: React.FC = () => {
               </div>
               
               <Button 
-                onClick={handleLichessSignUp} 
+                onClick={handleLichessAuth} 
                 type="button" 
                 className="w-full bg-[#4a4a4a] hover:bg-[#3a3a3a] text-white font-medium flex items-center justify-center space-x-2"
                 disabled={isLoading}
@@ -280,7 +267,7 @@ const Register: React.FC = () => {
                     fill="white"
                   />
                 </svg>
-                <span>Sign up with Lichess</span>
+                <span>Continue with Lichess</span>
               </Button>
             </div>
 

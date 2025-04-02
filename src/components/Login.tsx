@@ -41,6 +41,9 @@ const Login: React.FC = () => {
     try {
       console.log("🔍 Sending login request with:", formData); // Debugging
 
+      // Store the email in localStorage so Navbar can use it
+      localStorage.setItem("formEmail", formData.email);
+
       const response = await axios.post(
         "http://localhost:3060/auth/login",
         formData
@@ -54,6 +57,14 @@ const Login: React.FC = () => {
         if (data.accessToken) {
           localStorage.setItem("token", data.accessToken);
           localStorage.setItem("user", data._id);
+          
+          // If the response includes the email, store it 
+          if (data.email) {
+            localStorage.setItem("email", data.email);
+          } else {
+            // Keep the form email if response doesn't include email
+            localStorage.setItem("email", formData.email);
+          }
         } else {
           console.error("🛑 No accessToken received from backend!");
         }
@@ -94,6 +105,11 @@ const Login: React.FC = () => {
       if (res.data.accessToken) {
         localStorage.setItem("token", res.data.accessToken);
         localStorage.setItem("user", JSON.stringify(res.data.email));
+        
+        // Also store email directly for the navbar
+        if (res.data.email) {
+          localStorage.setItem("email", res.data.email);
+        }
       } else {
         console.warn("No accessToken received from backend!");
       }
