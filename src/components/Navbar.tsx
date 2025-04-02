@@ -64,6 +64,41 @@ interface ProfileDropdownProps {
 }
 
 const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onLogout }) => {
+  const lichessId = localStorage.getItem("lichessId");
+  const userJson = localStorage.getItem("user");
+  console.log(userJson);
+
+  let userDisplay = "Player";
+  let userTag = "@unknown";
+
+  if (userJson) {
+    try {
+      const user = JSON.parse(userJson);
+      if (user.googleId) {
+        if (user.email) {
+          const emailPrefix = user.email?.split("@")[0];
+          userDisplay = emailPrefix;
+          userTag = `${emailPrefix}`;
+        } else {
+          userDisplay = user.name || "Google User";
+          userTag = "@google";
+        }
+      } else if (user.username) {
+        userDisplay = user.username.split("@")[0];
+        userTag = `@${user.username}`;
+      } else if (typeof user === "string") {
+        userDisplay = user.split("@")[0];
+        userTag = `${user}`;
+      }
+    } catch {
+      userDisplay = userJson;
+      userTag = `@${userJson}`;
+    }
+  } else if (lichessId) {
+    userDisplay = lichessId;
+    userTag = `${lichessId}`;
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -82,8 +117,10 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onLogout }) => {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal focus:bg-yellow-700">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">Player</p>
-            <p className="text-xs leading-none text-muted-foreground"></p>
+            <p className="text-sm font-medium leading-none">{userDisplay}</p>
+            <p className="text-xs leading-none text-muted-foreground">
+              {userTag}
+            </p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -111,19 +148,21 @@ const Navbar: React.FC = () => {
   // On component mount, check for an auth token in localStorage.
   useEffect(() => {
     // Check for token - look for either "token" or "accessToken" based on your auth implementation
-    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("accessToken");
     setIsLoggedIn(!!token);
-    
+
     // Add an event listener to track auth state changes
     const handleStorageChange = () => {
-      const currentToken = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      const currentToken =
+        localStorage.getItem("token") || localStorage.getItem("accessToken");
       setIsLoggedIn(!!currentToken);
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    
+    window.addEventListener("storage", handleStorageChange);
+
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener("storage", handleStorageChange);
     };
   }, []);
 
@@ -148,7 +187,7 @@ const Navbar: React.FC = () => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
-    
+
     // Update state to reflect logged out status
     setIsLoggedIn(false);
   };
