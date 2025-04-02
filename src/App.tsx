@@ -13,6 +13,7 @@ import PrizePool from "./components/PrizePool";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import AntiCheat from "./components/AntiCheatSection";
+import Profile from "./pages/profile";
 
 // A simple auth check for demo purposes
 const isLoggedIn = () => {
@@ -40,6 +41,7 @@ const App: React.FC = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/anti-cheat" element={<AntiCheat />} />
+        <Route path="/profile" element={<Profile />} />
         {/* Protected routes - redirect to login if not authenticated */}
         <Route
           path="/play"
