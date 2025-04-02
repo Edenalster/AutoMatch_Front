@@ -93,7 +93,7 @@ const Login: React.FC = () => {
       // Store tokens and user data
       if (res.data.accessToken) {
         localStorage.setItem("token", res.data.accessToken);
-        localStorage.setItem("user", JSON.stringify(res.data._id));
+        localStorage.setItem("user", JSON.stringify(res.data.email));
       } else {
         console.warn("No accessToken received from backend!");
       }
