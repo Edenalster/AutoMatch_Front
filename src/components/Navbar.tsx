@@ -64,40 +64,95 @@ interface ProfileDropdownProps {
 }
 
 const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onLogout }) => {
-  const lichessId = localStorage.getItem("lichessId");
-  const userJson = localStorage.getItem("user");
-  console.log(userJson);
+  const [userDisplay, setUserDisplay] = useState("Player");
+  const [userTag, setUserTag] = useState("");
 
-  let userDisplay = "Player";
-  let userTag = "@unknown";
-
-  if (userJson) {
-    try {
-      const user = JSON.parse(userJson);
-      if (user.googleId) {
-        if (user.email) {
-          const emailPrefix = user.email?.split("@")[0];
-          userDisplay = emailPrefix;
-          userTag = `${emailPrefix}`;
-        } else {
-          userDisplay = user.name || "Google User";
-          userTag = "@google";
-        }
-      } else if (user.username) {
-        userDisplay = user.username.split("@")[0];
-        userTag = `@${user.username}`;
-      } else if (typeof user === "string") {
-        userDisplay = user.split("@")[0];
-        userTag = `${user}`;
-      }
-    } catch {
-      userDisplay = userJson;
-      userTag = `@${userJson}`;
+  useEffect(() => {
+    // Check for any stored email in localStorage
+    const storedEmail = localStorage.getItem("email");
+    const lichessId = localStorage.getItem("lichessId");
+    
+    console.log("Email in localStorage:", storedEmail);
+    console.log("LichessId in localStorage:", lichessId);
+    
+    // If we have a Lichess ID, use it
+    if (lichessId && lichessId.length > 0) {
+      setUserDisplay(lichessId);
+      setUserTag(`@${lichessId}`);
+      return;
     }
-  } else if (lichessId) {
-    userDisplay = lichessId;
-    userTag = `${lichessId}`;
-  }
+    
+    // If we have an email directly in localStorage
+    if (storedEmail) {
+      const emailPrefix = storedEmail.split('@')[0];
+      setUserDisplay(emailPrefix);
+      setUserTag(storedEmail);
+      return;
+    }
+    
+    // Try to get user data (which might contain email)
+    const userJson = localStorage.getItem("user");
+    console.log("User data in localStorage:", userJson);
+    
+    if (!userJson) return;
+    
+    try {
+      // Try parsing as JSON (for Google login or user object)
+      const userData = JSON.parse(userJson);
+      console.log("Parsed user data:", userData);
+      
+      // Check if the user data has an email property
+      if (userData.email) {
+        const emailPrefix = userData.email.split('@')[0];
+        setUserDisplay(emailPrefix);
+        setUserTag(userData.email);
+        return;
+      }
+      
+      // If the data is an email string itself (from Google login)
+      if (typeof userData === 'string' && userData.includes('@')) {
+        const emailPrefix = userData.split('@')[0];
+        setUserDisplay(emailPrefix);
+        setUserTag(userData);
+        return;
+      }
+    } catch (error) {
+      console.log("Parsing user data failed, treating as string:", error);
+      
+      // If parsing fails, check if the raw string is an email
+      if (userJson.includes('@')) {
+        const emailPrefix = userJson.split('@')[0];
+        setUserDisplay(emailPrefix);
+        setUserTag(userJson);
+        return;
+      }
+      
+      // For normal email login, the user value is just the MongoDB ID
+      // In this case, we need to use the email from the login form
+      // Since we don't have access to it directly, use a fallback username
+      const formEmail = localStorage.getItem("formEmail");
+      if (formEmail) {
+        const emailPrefix = formEmail.split('@')[0];
+        setUserDisplay(emailPrefix);
+        setUserTag(formEmail);
+        return;
+      }
+      
+      // If we have no other identifiers, use the first part of the user ID
+      // This is better than showing "Player"
+      if (userJson && userJson.length > 0) {
+        // If it looks like a MongoDB ObjectId, use part of it
+        if (userJson.match(/^[0-9a-f]{24}$/i)) {
+          const shortId = userJson.substring(0, 8) + "...";
+          setUserDisplay(shortId);
+          return;
+        }
+        
+        // Otherwise just use whatever string we have
+        setUserDisplay(userJson);
+      }
+    }
+  }, []);
 
   return (
     <DropdownMenu>
@@ -118,9 +173,11 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onLogout }) => {
         <DropdownMenuLabel className="font-normal focus:bg-yellow-700">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{userDisplay}</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {userTag}
-            </p>
+            {userTag && (
+              <p className="text-xs leading-none text-muted-foreground">
+                {userTag}
+              </p>
+            )}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -187,7 +244,9 @@ const Navbar: React.FC = () => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
-
+    localStorage.removeItem("lichessId");
+    localStorage.removeItem("email");
+    
     // Update state to reflect logged out status
     setIsLoggedIn(false);
   };
