@@ -3,7 +3,17 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Trophy } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
 import axios from "axios";
+
+interface IUser {
+  email: string;
+  password?: string;
+  imgUrl?: string;
+  _id: string;
+  accessToken?: string;
+  refreshToken?: string;
+}
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -80,13 +90,48 @@ const Register: React.FC = () => {
     }
   };
 
+  const googleSignin = async (credentialResponse: CredentialResponse): Promise<IUser> => {
+    try {
+      console.log("Google Signin!");
+      const res = await axios.post("http://localhost:3060/auth/google", credentialResponse);
+      console.log("Google Signin success!", res.data);
+
+      // Store tokens and user data
+      if (res.data.accessToken) {
+        localStorage.setItem("token", res.data.accessToken);
+        localStorage.setItem("user", JSON.stringify(res.data._id));
+      } else {
+        console.warn("No accessToken received from backend!");
+      }
+
+      return res.data;
+    } catch (error) {
+      console.error("Google Signin error!", error);
+      throw error;
+    }
+  };
+
+  const onGoogleLoginSuccess = async (credentialResponse: CredentialResponse) => {
+    console.log("✅ Google login successful!", credentialResponse);
+    try {
+      const res = await googleSignin(credentialResponse);
+      console.log("userID", res._id);
+      console.log("Google Signin success!", res);
+      navigate("/");
+    } catch (error) {
+      console.log("Google Signin error!", error);
+      setMessage("Google sign-in failed. Please try again.");
+    }
+  };
+
+  const onGoogleLoginError = () => {
+    console.error("🛑 Google login failed!");
+    setMessage("Google sign-in failed. Please try again or use email registration.");
+  };
+
   const handleLichessSignUp = () => {
     // Redirect to the lichess login endpoint
     window.location.href = "http://localhost:3060/auth/lichess/login";
-  };
-
-  const handleGoogleSignUp = () => {
-    setMessage("Google sign-up is not implemented yet");
   };
 
   return (
@@ -129,60 +174,6 @@ const Register: React.FC = () => {
                 {message}
               </div>
             )}
-
-            {/* OAuth Buttons */}
-            <div className="space-y-3 mb-6">
-              <Button 
-                onClick={handleGoogleSignUp} 
-                type="button" 
-                className="w-full bg-white hover:bg-white/90 text-gray-800 font-medium flex items-center justify-center space-x-2"
-                disabled={isLoading}
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24">
-                  <path
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    fill="#4285F4"
-                  />
-                  <path
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    fill="#34A853"
-                  />
-                  <path
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    fill="#FBBC05"
-                  />
-                  <path
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    fill="#EA4335"
-                  />
-                </svg>
-                <span>Sign up with Google</span>
-              </Button>
-              <Button 
-                onClick={handleLichessSignUp} 
-                type="button" 
-                className="w-full bg-[#4a4a4a] hover:bg-[#3a3a3a] text-white font-medium flex items-center justify-center space-x-2"
-                disabled={isLoading}
-              >
-                <svg className="h-5 w-5" viewBox="0 0 32 32" fill="none">
-                  <path
-                    d="M16 2C8.268 2 2 8.268 2 16s6.268 14 14 14 14-6.268 14-14S23.732 2 16 2zm4.714 24.5h-9.428v-4h9.428v4zm4.572-9.714H6.714V6.714h18.572v10.072z"
-                    fill="white"
-                  />
-                </svg>
-                <span>Sign up with Lichess</span>
-              </Button>
-            </div>
-
-            {/* Divider */}
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/20"></div>
-              </div>
-              <div className="relative flex justify-center">
-                <span className="bg-chess-dark px-4 text-sm text-white/50">or sign up with email</span>
-              </div>
-            </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
@@ -247,6 +238,51 @@ const Register: React.FC = () => {
                 {isLoading ? "Creating Account..." : "Create Account"}
               </Button>
             </form>
+            
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/20"></div>
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-chess-dark px-4 text-sm text-white/50">OR CONTINUE WITH</span>
+              </div>
+            </div>
+
+            {/* OAuth Buttons */}
+            <div className="space-y-3 mb-6">
+              <div
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  marginTop: "10px",
+                }}
+              >
+                <GoogleLogin
+                  onSuccess={onGoogleLoginSuccess}
+                  onError={onGoogleLoginError}
+                  theme="outline"
+                  size="large"
+                  width="400"
+                />
+              </div>
+              
+              <Button 
+                onClick={handleLichessSignUp} 
+                type="button" 
+                className="w-full bg-[#4a4a4a] hover:bg-[#3a3a3a] text-white font-medium flex items-center justify-center space-x-2"
+                disabled={isLoading}
+              >
+                <svg className="h-5 w-5" viewBox="0 0 32 32" fill="none">
+                  <path
+                    d="M16 2C8.268 2 2 8.268 2 16s6.268 14 14 14 14-6.268 14-14S23.732 2 16 2zm4.714 24.5h-9.428v-4h9.428v4zm4.572-9.714H6.714V6.714h18.572v10.072z"
+                    fill="white"
+                  />
+                </svg>
+                <span>Sign up with Lichess</span>
+              </Button>
+            </div>
 
             <div className="mt-6 text-center">
               <p className="text-white/70">

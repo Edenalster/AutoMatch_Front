@@ -105,14 +105,26 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onLogout }) => {
 const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  // Local state to manage login status. In a real app, you might use a global state.
+  // Local state to manage login status
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  localStorage.setItem("authToken", "your-token-here");
 
   // On component mount, check for an auth token in localStorage.
   useEffect(() => {
-    const token = localStorage.getItem("authToken");
+    // Check for token - look for either "token" or "accessToken" based on your auth implementation
+    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
     setIsLoggedIn(!!token);
+    
+    // Add an event listener to track auth state changes
+    const handleStorageChange = () => {
+      const currentToken = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      setIsLoggedIn(!!currentToken);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   // Listen for scroll events to update the navbar background.
@@ -131,7 +143,13 @@ const Navbar: React.FC = () => {
    * handleLogout clears the auth token and updates the login state.
    */
   const handleLogout = () => {
-    localStorage.removeItem("authToken");
+    // Remove all auth-related items from localStorage
+    localStorage.removeItem("token");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("user");
+    
+    // Update state to reflect logged out status
     setIsLoggedIn(false);
   };
 
@@ -169,10 +187,11 @@ const Navbar: React.FC = () => {
               Play Now
             </Button>
             {isLoggedIn ? (
-              // Show the profile dropdown when logged in.
+              // Show the profile dropdown ONLY when logged in
               <ProfileDropdown onLogout={handleLogout} />
             ) : (
-              <>
+              // Show login/register buttons when NOT logged in
+              <div className="flex items-center space-x-3">
                 <Link to="/login">
                   <Button
                     className="bg-white/10 hover:bg-white/20 text-white border border-white/20"
@@ -189,7 +208,7 @@ const Navbar: React.FC = () => {
                     Register
                   </Button>
                 </Link>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -247,17 +266,16 @@ const Navbar: React.FC = () => {
                 Play Now
               </Button>
               {isLoggedIn ? (
-                <Link to="/profile">
-                  <Button
-                    className="bg-white/10 hover:bg-white/20 text-white border border-white/20 w-full"
-                    size="sm"
-                  >
-                    Profile
-                  </Button>
-                </Link>
+                <Button
+                  onClick={handleLogout}
+                  className="bg-white/10 hover:bg-white/20 text-white border border-white/20 w-full"
+                  size="sm"
+                >
+                  Log Out
+                </Button>
               ) : (
-                <>
-                  <Link to="/login">
+                <div className="grid grid-cols-2 gap-3 col-span-1">
+                  <Link to="/login" className="col-span-1">
                     <Button
                       className="bg-white/10 hover:bg-white/20 text-white border border-white/20 w-full"
                       size="sm"
@@ -265,7 +283,7 @@ const Navbar: React.FC = () => {
                       Log In
                     </Button>
                   </Link>
-                  <Link to="/register">
+                  <Link to="/register" className="col-span-1">
                     <Button
                       className="bg-white/10 hover:bg-white/20 text-white border border-white/20 w-full"
                       size="sm"
@@ -273,7 +291,7 @@ const Navbar: React.FC = () => {
                       Register
                     </Button>
                   </Link>
-                </>
+                </div>
               )}
             </div>
           </div>
