@@ -76,12 +76,18 @@ const HeroSection: React.FC = () => {
             className="flex flex-wrap gap-4 pt-4 animate-slide-up"
             style={{ animationDelay: "0.1s" }}
           >
-            <Button className="primary-btn text-base px-8 py-6">
-              Play Now
-            </Button>
-            <Button className="secondary-btn text-base px-8 py-6">
-              Create Tournament
-            </Button>
+            <Link to="/find-match">
+              {" "}
+              <Button className="primary-btn text-base px-8 py-6">
+                Play Now
+              </Button>
+            </Link>
+
+            <Link to="/create-tournament">
+              <Button className="secondary-btn text-base px-8 py-6">
+                Create Tournament
+              </Button>
+            </Link>
           </div>
 
           {/* Feature badges displaying key features */}

@@ -9,27 +9,146 @@ import {
 } from "../components/ui/table";
 import { DollarSign, Trophy, UserRound } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import type { JSX } from "react";
+import ChessLoader from "../components/Loader";
 
 const ProfilePage = () => {
-  // Mock user data - in a real app, this would come from your auth system
-  const lichessuser = localStorage.getItem("lichessId");
-  const user = {
-    name: lichessuser,
-    username: lichessuser,
-    email: lichessuser,
-    profileImage: <UserRound />,
+  interface User {
+    name: string;
+    username: string;
+    email: string;
+    profileImage: JSX.Element;
     ratings: {
-      classic: { rating: 1344, games: 23 },
-      blitz: { rating: 1211, games: 10 },
-      rapid: { rating: 1800, games: 65 },
-      bullet: { rating: 1754, games: 44 },
-    },
-    balance: 120,
-    recentMatches: [
-      { type: "Blitz Tournament", position: "3/4th", amount: -20 },
-      { type: "Rapid Tournament", position: "1st", amount: 50 },
-    ],
-  };
+      classic: { rating: number; games: number };
+      blitz: { rating: number; games: number };
+      rapid: { rating: number; games: number };
+      bullet: { rating: number; games: number };
+    };
+    balance: number;
+    recentMatches: { type: string; position: string; amount: number }[];
+    tournamentResults: {
+      date: string;
+      tournament: string;
+      type: string;
+      result: number;
+    }[];
+  }
+
+  const [user, setUser] = useState<User | null>(null);
+  const lichessId = localStorage.getItem("lichessId");
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!lichessId) return;
+      try {
+        const res = await fetch(`https://lichess.org/api/user/${lichessId}`);
+        const data = await res.json();
+
+        const gamesRes = await fetch(
+          `https://lichess.org/api/games/user/${lichessId}?max=5`,
+          {
+            headers: { Accept: "application/x-ndjson" },
+          }
+        );
+        const gamesText = await gamesRes.text();
+        const games = gamesText
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line));
+
+        interface Game {
+          perf: string;
+          winner: string | null;
+          players: {
+            white: { user?: { id: string }; rating: number };
+            black: { user?: { id: string }; rating: number };
+          };
+          createdAt: number;
+        }
+
+        const recentMatches = games.map((game: Game) => {
+          const userIsWhite =
+            game.players.white.user?.id?.toLowerCase() ===
+            data.username.toLowerCase();
+          const userIsBlack =
+            game.players.black.user?.id?.toLowerCase() ===
+            data.username.toLowerCase();
+
+          const userDraw = !game.winner;
+          const userWon =
+            (userIsWhite && game.winner === "white") ||
+            (userIsBlack && game.winner === "black");
+
+          return {
+            type: `${game.perf.toUpperCase()} Game`,
+            position: userDraw ? "Draw" : userWon ? "1st" : "Lost",
+            amount: userDraw ? 0 : userWon ? 50 : -20,
+          };
+        });
+
+        const tournamentResults = games.map((game: Game) => {
+          const userIsWhite =
+            game.players.white.user?.id?.toLowerCase() ===
+            data.username.toLowerCase();
+          const userIsBlack =
+            game.players.black.user?.id?.toLowerCase() ===
+            data.username.toLowerCase();
+          const userDraw = !game.winner;
+          const userWon =
+            (userIsWhite && game.winner === "white") ||
+            (userIsBlack && game.winner === "black");
+
+          const date = new Date(game.createdAt).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+
+          return {
+            date,
+            tournament: "Online Game",
+            type: game.perf.charAt(0).toUpperCase() + game.perf.slice(1),
+            result: userDraw ? 0 : userWon ? 50 : -20,
+          };
+        });
+
+        setUser({
+          name: data.username,
+          username: data.username,
+          email: `${data.username}@lichess.org`,
+          profileImage: <UserRound />,
+          ratings: {
+            classic: {
+              rating: data.perfs.classical?.rating ?? 1500,
+              games: data.perfs.classical?.games ?? 0,
+            },
+            blitz: {
+              rating: data.perfs.blitz?.rating ?? 1500,
+              games: data.perfs.blitz?.games ?? 0,
+            },
+            rapid: {
+              rating: data.perfs.rapid?.rating ?? 1500,
+              games: data.perfs.rapid?.games ?? 0,
+            },
+            bullet: {
+              rating: data.perfs.bullet?.rating ?? 1500,
+              games: data.perfs.bullet?.games ?? 0,
+            },
+          },
+          balance: 120,
+          recentMatches,
+          tournamentResults,
+        });
+      } catch (error) {
+        console.error("Failed to fetch Lichess data:", error);
+      }
+    };
+
+    fetchUserData();
+  }, [lichessId]);
+
+  if (!user) return <ChessLoader />;
 
   return (
     <div className="min-h-screen bg-chess-dark">
@@ -55,7 +174,7 @@ const ProfilePage = () => {
         </div>
       </header>
 
-      <div className="pt-28 pb-16 px-4 md:px-8 max-w-7xl mx-auto">
+      <div className="pt-10 pb-16 px-4 md:px-8 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - User Profile */}
           <div className="lg:col-span-1 space-y-8">
@@ -174,38 +293,21 @@ const ProfilePage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <TableRow>
-                    <TableCell>May 12, 2023</TableCell>
-                    <TableCell>Spring Championship</TableCell>
-                    <TableCell>Blitz</TableCell>
-                    <TableCell className="text-right text-red-500">
-                      -20$
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Apr 28, 2023</TableCell>
-                    <TableCell>Weekly Rapid</TableCell>
-                    <TableCell>Rapid</TableCell>
-                    <TableCell className="text-right text-green-500">
-                      +50$
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Apr 15, 2023</TableCell>
-                    <TableCell>Grand Prix</TableCell>
-                    <TableCell>Classic</TableCell>
-                    <TableCell className="text-right text-green-500">
-                      +75$
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Mar 22, 2023</TableCell>
-                    <TableCell>Bullet Bonanza</TableCell>
-                    <TableCell>Bullet</TableCell>
-                    <TableCell className="text-right text-red-500">
-                      -15$
-                    </TableCell>
-                  </TableRow>
+                  {user.tournamentResults.map((match, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{match.date}</TableCell>
+                      <TableCell>{match.tournament}</TableCell>
+                      <TableCell>{match.type}</TableCell>
+                      <TableCell
+                        className={`text-right ${
+                          match.result > 0 ? "text-green-500" : "text-red-500"
+                        }`}
+                      >
+                        {match.result > 0 ? "+" : ""}
+                        {match.result}$
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>
