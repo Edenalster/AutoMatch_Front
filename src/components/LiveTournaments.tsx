@@ -59,6 +59,13 @@ const LiveTournaments: React.FC = () => {
     <section id="tournaments" className="section-padding relative">
       {/* Background gradient overlay */}
       <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-radial from-chess-gold/5 to-transparent"></div>
+      {/* Background gradient with a chess board pattern overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90 z-0"></div>
+      <div className="absolute inset-0 chess-board-bg opacity-15 z-0"></div>
+
+      {/* Decorative blurred elements for dynamic visuals */}
+      <div className="absolute top-20 left-10 w-64 h-64 bg-chess-gold/10 rounded-full filter blur-3xl animate-pulse-soft"></div>
+      <div className="absolute bottom-20 right-10 w-72 h-72 bg-chess-secondary/10 rounded-full filter blur-3xl animate-pulse-soft"></div>
 
       <div className="container mx-auto relative z-10">
         {/* Header section with title, description, and filter buttons */}

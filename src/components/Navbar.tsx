@@ -71,73 +71,73 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onLogout }) => {
     // Check for any stored email in localStorage
     const storedEmail = localStorage.getItem("email");
     const lichessId = localStorage.getItem("lichessId");
-    
+
     console.log("Email in localStorage:", storedEmail);
     console.log("LichessId in localStorage:", lichessId);
-    
+
     // If we have a Lichess ID, use it
     if (lichessId && lichessId.length > 0) {
       setUserDisplay(lichessId);
       setUserTag(`@${lichessId}`);
       return;
     }
-    
+
     // If we have an email directly in localStorage
     if (storedEmail) {
-      const emailPrefix = storedEmail.split('@')[0];
+      const emailPrefix = storedEmail.split("@")[0];
       setUserDisplay(emailPrefix);
       setUserTag(storedEmail);
       return;
     }
-    
+
     // Try to get user data (which might contain email)
     const userJson = localStorage.getItem("user");
     console.log("User data in localStorage:", userJson);
-    
+
     if (!userJson) return;
-    
+
     try {
       // Try parsing as JSON (for Google login or user object)
       const userData = JSON.parse(userJson);
       console.log("Parsed user data:", userData);
-      
+
       // Check if the user data has an email property
       if (userData.email) {
-        const emailPrefix = userData.email.split('@')[0];
+        const emailPrefix = userData.email.split("@")[0];
         setUserDisplay(emailPrefix);
         setUserTag(userData.email);
         return;
       }
-      
+
       // If the data is an email string itself (from Google login)
-      if (typeof userData === 'string' && userData.includes('@')) {
-        const emailPrefix = userData.split('@')[0];
+      if (typeof userData === "string" && userData.includes("@")) {
+        const emailPrefix = userData.split("@")[0];
         setUserDisplay(emailPrefix);
         setUserTag(userData);
         return;
       }
     } catch (error) {
       console.log("Parsing user data failed, treating as string:", error);
-      
+
       // If parsing fails, check if the raw string is an email
-      if (userJson.includes('@')) {
-        const emailPrefix = userJson.split('@')[0];
+      if (userJson.includes("@")) {
+        const emailPrefix = userJson.split("@")[0];
         setUserDisplay(emailPrefix);
         setUserTag(userJson);
         return;
       }
-      
+
       // For normal email login, the user value is just the MongoDB ID
       // In this case, we need to use the email from the login form
       // Since we don't have access to it directly, use a fallback username
       const formEmail = localStorage.getItem("formEmail");
       if (formEmail) {
-        const emailPrefix = formEmail.split('@')[0];
+        const emailPrefix = formEmail.split("@")[0];
         setUserDisplay(emailPrefix);
         setUserTag(formEmail);
         return;
       }
-      
+
       // If we have no other identifiers, use the first part of the user ID
       // This is better than showing "Player"
       if (userJson && userJson.length > 0) {
@@ -147,7 +147,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onLogout }) => {
           setUserDisplay(shortId);
           return;
         }
-        
+
         // Otherwise just use whatever string we have
         setUserDisplay(userJson);
       }
@@ -181,6 +181,12 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onLogout }) => {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem className="cursor-pointer">
+          <Link to="/profile" className="flex items-center w-full">
+            <UserRound className="mr-2 h-4 w-4" />
+            <span>Profile</span>
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={onLogout}
           className="cursor-pointer text-destructive"
@@ -196,7 +202,11 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onLogout }) => {
 /**
  * Navbar component that renders the navigation bar.
  */
-const Navbar: React.FC = () => {
+interface NavbarProps {
+  showItems: boolean;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ showItems }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // Local state to manage login status
@@ -246,7 +256,7 @@ const Navbar: React.FC = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("lichessId");
     localStorage.removeItem("email");
-    
+
     // Update state to reflect logged out status
     setIsLoggedIn(false);
   };
@@ -263,7 +273,7 @@ const Navbar: React.FC = () => {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <a
           className="flex items-center space-x-2"
-          href="#home"
+          href="/"
           onClick={() => setIsMobileMenuOpen(false)}
         >
           <Trophy className="h-8 w-8 text-chess-gold animate-pulse-soft" />
@@ -275,15 +285,23 @@ const Navbar: React.FC = () => {
 
         {/* Desktop Menu (hidden on mobile devices) */}
         <div className="hidden md:flex items-center space-x-6">
-          <NavLink href="#tournaments">Tournaments</NavLink>
-          <NavLink href="#features">Features</NavLink>
-          <NavLink href="#how-it-works">How It Works</NavLink>
+          {showItems ? (
+            <>
+              <NavLink href="#tournaments">Tournaments</NavLink>
+              <NavLink href="#features">Features</NavLink>
+              <NavLink href="#how-it-works">How It Works</NavLink>
+            </>
+          ) : (
+            <></>
+          )}
 
           {/* Action buttons for desktop */}
           <div className="flex items-center space-x-3 ml-4">
-            <Button className="primary-btn" size="sm">
-              Play Now
-            </Button>
+            <Link to="/find-match">
+              <Button className="primary-btn" size="sm">
+                Play Now
+              </Button>
+            </Link>
             {isLoggedIn ? (
               // Show the profile dropdown ONLY when logged in
               <ProfileDropdown onLogout={handleLogout} />
