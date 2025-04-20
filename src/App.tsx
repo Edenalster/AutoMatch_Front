@@ -16,6 +16,8 @@ import AntiCheat from "./components/AntiCheatSection";
 import Profile from "./pages/profile";
 import FindMatch from "./pages/FindMatch";
 import CreateTournament from "./pages/CreateTournament";
+import GameLobby from "./pages/GameLobby";
+import ChessBoard from "./pages/ChessBoard";
 
 // A simple auth check for demo purposes
 const isLoggedIn = () => {
@@ -46,6 +48,8 @@ const App: React.FC = () => {
         <Route path="/profile" element={<Profile />} />
         <Route path="/find-match" element={<FindMatch />} />
         <Route path="/create-tournament" element={<CreateTournament />} />
+        <Route path="/lobby/:id" element={<GameLobby />} />
+        <Route path="/chess-board" element={<ChessBoard />} />
         {/* Protected routes - redirect to login if not authenticated */}
         <Route
           path="/play"

@@ -55,6 +55,7 @@ const ProfilePage = () => {
         const games = gamesText
           .trim()
           .split("\n")
+          .filter((line) => line.trim().length > 0) // ✅ ignore blank lines
           .map((line) => JSON.parse(line));
 
         interface Game {
@@ -148,7 +149,12 @@ const ProfilePage = () => {
     fetchUserData();
   }, [lichessId]);
 
-  if (!user) return <ChessLoader />;
+  if (!user)
+    return (
+      <div className="mt-60">
+        <ChessLoader />
+      </div>
+    );
 
   return (
     <div className="min-h-screen bg-chess-dark">
