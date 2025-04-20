@@ -12,6 +12,7 @@ import {
   DropdownMenuLabel,
 } from "../components/ui/dropdown-menu";
 import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar";
+import NotificationBell from "./NotificationBell";
 
 /**
  * Props for navigation link components.
@@ -211,6 +212,14 @@ const Navbar: React.FC<NavbarProps> = ({ showItems }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // Local state to manage login status
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [tournamentLink, setTournamentLink] = useState<string | null>(null);
+
+  useEffect(() => {
+    const storedLink = localStorage.getItem("pendingTournamentLink");
+    if (storedLink) {
+      setTournamentLink(storedLink);
+    }
+  }, []);
 
   // On component mount, check for an auth token in localStorage.
   useEffect(() => {
@@ -296,7 +305,9 @@ const Navbar: React.FC<NavbarProps> = ({ showItems }) => {
           )}
 
           {/* Action buttons for desktop */}
+
           <div className="flex items-center space-x-3 ml-4">
+            <NotificationBell tournamentLink={tournamentLink} />
             <Link to="/find-match">
               <Button className="primary-btn" size="sm">
                 Play Now

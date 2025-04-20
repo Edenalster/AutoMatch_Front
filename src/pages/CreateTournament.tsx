@@ -23,6 +23,7 @@ import {
 import { Slider } from "../components/ui/slider";
 import Navbar from "../components/Navbar";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 const formSchema = z.object({
   tournamentName: z
@@ -53,8 +54,30 @@ const CreateTournament = () => {
     document.title = "Create Tournament - AutoMatch";
   }, []);
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    console.log(values);
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    try {
+      const userId = localStorage.getItem("user");
+      console.log("User ID:", userId);
+      const lichessId = localStorage.getItem("lichessId");
+
+      const response = await axios.post(
+        "http://localhost:3060/api/lichess/tournaments",
+        {
+          createdBy: userId,
+          playerIds: [lichessId || "placeholderUser"], // must be array, and >= 2 to avoid backend validation
+          maxPlayers: parseInt(values.maxPlayers),
+          tournamentName: values.tournamentName,
+          gameType: values.gameType,
+          entryFee: parseInt(values.entryFee),
+        }
+      );
+      console.log("Sending maxPlayers:", parseInt(values.maxPlayers));
+
+      const tournamentId = response.data.tournament._id;
+      navigate(`/lobby/${tournamentId}`);
+    } catch (err) {
+      console.error("Failed to create tournament", err);
+    }
   };
 
   return (
@@ -116,7 +139,7 @@ const CreateTournament = () => {
                         <FormLabel>Maximum Players</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Users className="absolute left-3 top-3 h-5 w-5 text-chess-gold" />
+                            <Users className="absolute left-3 top-3 h-5 w-5 text-chess-gold " />
                             <Select
                               onValueChange={field.onChange}
                               value={field.value}
@@ -125,7 +148,7 @@ const CreateTournament = () => {
                                 <SelectValue placeholder="Select max players" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="4">4 Players</SelectItem>
+                                <SelectItem value="2">2 Players</SelectItem>
                                 <SelectItem value="8">8 Players</SelectItem>
                                 <SelectItem value="16">16 Players</SelectItem>
                                 <SelectItem value="32">32 Players</SelectItem>
@@ -152,9 +175,7 @@ const CreateTournament = () => {
                             <SelectValue placeholder="Select game type" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="blitz">
-                              Normal (5 min)
-                            </SelectItem>
+                            <SelectItem value="blitz">Blitz (5 min)</SelectItem>
                             <SelectItem value="rapid">
                               Rapid (10 min)
                             </SelectItem>
@@ -204,7 +225,11 @@ const CreateTournament = () => {
                     Cancel
                   </Button>
 
-                  <Button type="submit" className="primary-btn w-full py-6">
+                  <Button
+                    type="submit"
+                    className="primary-btn w-full py-6"
+                    // onClick={handleCreateTournament}
+                  >
                     Create Tournament
                   </Button>
                 </div>

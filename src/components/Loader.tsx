@@ -3,7 +3,7 @@ import React from "react";
 const Loader = () => {
   return (
     <div style={styles.container}>
-      <div style={styles.loader}></div>
+      <div style={styles.loader}>$</div>
       <style>
         {`
           @keyframes coin-flip {
@@ -35,7 +35,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     height: "100%",
   },
   loader: {
-    content: "'$'",
     display: "inline-block",
     width: "48px",
     height: "48px",
@@ -50,14 +49,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     boxSizing: "border-box",
     boxShadow: "2px 2px 2px 1px rgba(0, 0, 0, .1)",
     animation: "coin-flip 4s cubic-bezier(0, 0.2, 0.8, 1) infinite",
-    position: "relative",
   },
 };
-
-// Hack to inject content as pseudo-element workaround
-setTimeout(() => {
-  const loader = document.querySelector(".loader");
-  if (loader) loader.innerHTML = "$";
-}, 0);
 
 export default Loader;
