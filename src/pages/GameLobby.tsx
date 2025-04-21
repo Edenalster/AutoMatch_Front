@@ -32,25 +32,38 @@ const GameLobby = () => {
   const [hasJoined, setHasJoined] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
+  // Fetch tournament data and update state
   const fetchTournament = async () => {
+    console.log("🔄 Fetching tournament data...");
     try {
       const res = await fetch(
         `http://localhost:3060/api/lichess/tournaments/${tournamentId}`
       );
       const data = await res.json();
 
+      console.log("🔍 Tournament data fetched:", data);
+
+      if (!data) {
+        console.log("Tournament not found");
+        return;
+      }
+
       setMaxPlayers(data.maxPlayers);
       setTournamentName(data.tournamentName || "Tournament");
 
+      // Check if the current user is the creator
       if (userId && data.createdBy === userId) {
         setIsCreator(true);
+        console.log(`🏆 User is the creator of this tournament.`);
       }
 
+      // Check if the user has joined the tournament
       if (data.playerIds.includes(lichessId)) {
         setHasJoined(true);
+        console.log(`🎮 User has already joined the tournament.`);
       }
 
-      // 🔁 Enrich players with ratings
+      // Enrich players with their ratings
       const enrichedPlayers = await Promise.all(
         data.playerIds.map(async (id: string) => {
           try {
@@ -75,7 +88,7 @@ const GameLobby = () => {
 
       setPlayers(enrichedPlayers.filter((p): p is Player => p !== null));
 
-      // 🧠 If full and not started, host starts tournament
+      // Auto-start tournament if it is full and hasn't started yet
       const tournamentStarted = data.rounds?.length > 0;
       if (
         data.playerIds.length === data.maxPlayers &&
@@ -89,7 +102,7 @@ const GameLobby = () => {
         );
       }
 
-      // ✅ If already started, look for player's match
+      // If tournament is started, check if the player has a match
       const latestRound = data.rounds?.[data.rounds.length - 1];
       const match = latestRound?.matches?.find(
         (m: Match) => m.player1 === lichessId || m.player2 === lichessId
@@ -106,11 +119,12 @@ const GameLobby = () => {
   };
 
   useEffect(() => {
-    const interval = setInterval(fetchTournament, 2000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchTournament, 5000); // Poll every 5 seconds
+    return () => clearInterval(interval); // Cleanup interval on component unmount
   }, [isCreator, lichessId, userId]);
 
   const handleJoin = async () => {
+    console.log("🔄 User attempting to join the tournament...");
     try {
       const res = await fetch(
         `http://localhost:3060/api/lichess/tournaments/${tournamentId}/join`,
@@ -122,6 +136,7 @@ const GameLobby = () => {
       );
       await res.json();
       setHasJoined(true);
+      console.log(`🎮 User joined the tournament.`);
     } catch (err) {
       console.error("❌ Failed to join lobby:", err);
     }

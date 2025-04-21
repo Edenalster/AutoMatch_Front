@@ -1,0 +1,253 @@
+import Navbar from "../components/Navbar";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+
+const AfterGame = () => {
+  const [status, setStatus] = useState<string | null>(null);
+  const [whitePlayer, setWhitePlayer] = useState<string | null>(null);
+  const [blackPlayer, setBlackPlayer] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const gameId = new URLSearchParams(location.search).get("gameId");
+
+  useEffect(() => {
+    if (!gameId) {
+      setLoading(false);
+      setError("No game ID provided");
+      return;
+    }
+
+    const fetchGameResult = async () => {
+      try {
+        console.log(`Fetching game result for ID: ${gameId}`);
+
+        // Make a direct request to the Lichess API
+        const response = await fetch(`https://lichess.org/api/game/${gameId}`, {
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Lichess API returned ${response.status}: ${response.statusText}`
+          );
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const data = await response.json();
+          console.log("Game data:", data);
+
+          // Extract the status from data
+          setStatus(data.status || "unknown");
+
+          // Fetch the usernames for black and white players
+          const fetchUsernames = async () => {
+            try {
+              const whitePlayerResponse = await fetch(
+                `https://lichess.org/api/user/${data.players.white.userId}`
+              );
+              const blackPlayerResponse = await fetch(
+                `https://lichess.org/api/user/${data.players.black.userId}`
+              );
+
+              if (whitePlayerResponse.ok && blackPlayerResponse.ok) {
+                const whitePlayerData = await whitePlayerResponse.json();
+                const blackPlayerData = await blackPlayerResponse.json();
+
+                setWhitePlayer(whitePlayerData.username || "Unknown");
+                setBlackPlayer(blackPlayerData.username || "Unknown");
+              }
+            } catch (err) {
+              console.error("Error fetching player usernames:", err);
+            }
+          };
+
+          await fetchUsernames();
+        } else {
+          console.log("Non-JSON response from Lichess");
+
+          try {
+            const checkResponse = await fetch(`https://lichess.org/${gameId}`);
+            if (checkResponse.ok) {
+              setStatus("ongoing");
+            } else {
+              setError("Game not found");
+            }
+          } catch {
+            setError("Could not verify game status");
+          }
+        }
+      } catch (err) {
+        console.error("❌ Error fetching game result:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch game result"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGameResult();
+  }, [gameId]);
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "mate":
+        return "text-red-400";
+      case "resign":
+        return "text-orange-400";
+      case "stalemate":
+        return "text-yellow-400";
+      case "draw":
+        return "text-yellow-300";
+      case "timeout":
+        return "text-purple-400";
+      case "cheat":
+        return "text-pink-400";
+      case "variantend":
+        return "text-blue-300";
+      case "started":
+      case "created":
+      case "ongoing":
+        return "text-green-400";
+      case "aborted":
+        return "text-gray-400";
+      default:
+        return "text-white";
+    }
+  };
+
+  const getReadableStatus = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "mate":
+        return "Checkmate";
+      case "resign":
+        return "One player resigned";
+      case "stalemate":
+        return "Stalemate";
+      case "draw":
+        return "Game ended in a draw";
+      case "timeout":
+        return "Timeout";
+      case "cheat":
+        return "Terminated due to fair play violation";
+      case "variantend":
+        return "Game ended (variant-specific)";
+      case "started":
+      case "created":
+      case "ongoing":
+        return "Game is in progress";
+      case "aborted":
+        return "Game was aborted";
+      default:
+        return status || "Unknown status";
+    }
+  };
+
+  const handleGoToTournament = () => {
+    navigate("/tournament");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-white bg-dark-blue">
+        <div className="bg-gray-800 p-8 rounded-lg shadow-lg text-center">
+          <h1 className="text-2xl font-bold mb-4">Loading Game Result</h1>
+          <p>Please wait while we fetch the results from Lichess...</p>
+          <div className="mt-4 w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !status) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-white bg-dark-blue">
+        <div className="bg-gray-800 p-8 rounded-lg shadow-lg text-center">
+          <h1 className="text-2xl font-bold mb-4">Game Result Not Available</h1>
+          <p>{error || "The game result is not available yet."}</p>
+          <p className="text-sm mt-4">Game ID: {gameId || "Not provided"}</p>
+          <div className="mt-6">
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-blue-500 py-2 px-4 rounded mr-4 hover:bg-blue-600 transition"
+            >
+              Refresh
+            </button>
+            <button
+              onClick={handleGoToTournament}
+              className="bg-gray-500 py-2 px-4 rounded hover:bg-gray-600 transition"
+            >
+              Back to Tournament
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center text-white bg-dark-blue">
+      <Navbar showItems={false} />
+      <div className="absolute inset-0 bg-gradient-to-b from-background to-background/70 z-0">
+        <div className="chess-board-bg absolute inset-0 opacity-20"></div>
+      </div>
+
+      {/* Decorative blurred circles for visual interest */}
+      <div className="absolute top-1/4 left-10 w-64 h-64 bg-chess-gold/20 rounded-full filter blur-3xl animate-pulse-soft"></div>
+      <div className="absolute bottom-1/4 right-10 w-80 h-80 bg-chess-secondary/20 rounded-full filter blur-3xl animate-pulse-soft"></div>
+
+      <div className="bg-gray-800 p-8 rounded-lg shadow-lg text-center max-w-md w-full z-10">
+        <h1 className="text-4xl font-bold mb-6">Classic Tournament</h1>
+        <p className="text-xl font-medium mb-4">Round 1 Match</p>
+
+        {/* Displaying Players */}
+        <div className="text-2xl font-semibold mb-4">
+          <span className="text-chess-gold">{whitePlayer || "White"}</span> VS{" "}
+          <span className="text-chess-gold">{blackPlayer || "Black"}</span>
+        </div>
+
+        {/* Displaying the result */}
+        <div className="bg-gray-700 p-6 rounded-lg mb-6">
+          <h2 className="text-xl font-bold mb-3">Result</h2>
+          <p className={`text-2xl ${getStatusColor(status)}`}>
+            {getReadableStatus(status)}
+          </p>
+
+          <div className="mt-4 text-sm text-gray-400">
+            <a
+              href={`https://lichess.org/${gameId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-blue-300"
+            >
+              View game on Lichess
+            </a>
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div className="mt-8 flex justify-center gap-6">
+          <button
+            onClick={() => (window.location.href = "/")}
+            className=" py-2 px-6 secondary-btn  bg-blue-900 text-white hover:bg-blue-700"
+          >
+            Back to Home
+          </button>
+          <button
+            onClick={handleGoToTournament}
+            className=" py-2 px-6  primary-btn  "
+          >
+            Tournament Screen
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AfterGame;
