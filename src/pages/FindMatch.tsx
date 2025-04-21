@@ -1,7 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { Button } from "../components/ui/button";
 import { Slider } from "../components/ui/slider";
+import { Input } from "../components/ui/input";
+import useToast from "../hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -9,41 +12,84 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import { useNavigate } from "react-router-dom";
 
 const FindMatch = () => {
   const [entryFee, setEntryFee] = useState([0]);
   const [gameType, setGameType] = useState("any");
+  const [lobbyUrl, setLobbyUrl] = useState("");
   const navigate = useNavigate();
-
-  const handleClick = () => {
-    navigate("/"); // Navigate to the tournaments page
-  };
+  const { toast } = useToast();
 
   const handleSearch = () => {
     console.log("Searching with:", { entryFee: entryFee[0], gameType });
   };
 
+  const handleJoinLobby = () => {
+    try {
+      const url = new URL(lobbyUrl);
+      const pathname = url.pathname;
+
+      if (pathname.startsWith("/lobby/")) {
+        navigate(pathname);
+      } else {
+        toast({
+          title: "Invalid lobby URL",
+          description: "The URL must follow the format /lobby/:id",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid lobby URL",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-chess-dark">
-      {/* Background gradient with a chess board pattern overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90 z-0"></div>
-      <div className="absolute inset-0 chess-board-bg opacity-15 z-0"></div>
-
-      {/* Decorative blurred elements for dynamic visuals */}
-      <div className="absolute top-20 left-10 w-64 h-64 bg-chess-gold/10 rounded-full filter blur-3xl animate-pulse-soft"></div>
-      <div className="absolute bottom-20 right-10 w-72 h-72 bg-chess-secondary/10 rounded-full filter blur-3xl animate-pulse-soft"></div>
       <Navbar showItems={false} />
+      {/* Background with chess pattern and gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background to-background/70 z-0">
+        <div className="chess-board-bg absolute inset-0 opacity-20"></div>
+      </div>
+
+      {/* Decorative blurred circles for visual interest */}
+      <div className="absolute top-1/4 left-10 w-64 h-64 bg-chess-gold/20 rounded-full filter blur-3xl animate-pulse-soft"></div>
+      <div className="absolute bottom-1/4 right-10 w-80 h-80 bg-chess-secondary/20 rounded-full filter blur-3xl animate-pulse-soft"></div>
 
       <div className="pt-28 pb-16 px-4 md:px-8 max-w-7xl mx-auto">
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-md mb-4 animate-fade-in">
+          <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-lg ">
             Find Match
           </h1>
         </div>
 
         <div className="max-w-2xl mx-auto">
           <div className="glass-card p-8 space-y-8">
+            {/* Join via URL section */}
+            <div className="space-y-4 pb-8 border-b border-white/10">
+              <label className="block text-lg font-medium text-white mb-2">
+                Join via URL
+              </label>
+              <div className="flex gap-4">
+                <Input
+                  type="text"
+                  placeholder="Enter lobby URL"
+                  value={lobbyUrl}
+                  onChange={(e) => setLobbyUrl(e.target.value)}
+                  className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-white/50"
+                />
+                <Button
+                  onClick={handleJoinLobby}
+                  className="bg-chess-gold hover:bg-chess-gold/90 text-black"
+                >
+                  Join Lobby
+                </Button>
+              </div>
+            </div>
+
             {/* Entry Fee Slider */}
             <div className="space-y-4">
               <label className="block text-lg font-medium text-white mb-2">
@@ -84,21 +130,9 @@ const FindMatch = () => {
             </div>
 
             {/* Search Button */}
-            <div className="flex flex-row gap-10">
-              <Button
-                onClick={handleClick}
-                className="w-full secondary-btn mt-8 bg-blue-900 text-white hover:bg-blue-700 "
-              >
-                Cancel
-              </Button>
-
-              <Button
-                onClick={handleSearch}
-                className="w-full primary-btn mt-8 "
-              >
-                Search
-              </Button>
-            </div>
+            <Button onClick={handleSearch} className="w-full primary-btn mt-8">
+              Search
+            </Button>
           </div>
         </div>
       </div>
