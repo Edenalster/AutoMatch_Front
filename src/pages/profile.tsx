@@ -151,7 +151,7 @@ const ProfilePage = () => {
 
   if (!user)
     return (
-      <div className="mt-60">
+      <div className="mt-80">
         <ChessLoader />
       </div>
     );

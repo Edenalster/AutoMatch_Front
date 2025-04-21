@@ -4,7 +4,7 @@ import Navbar from "../components/Navbar";
 import { Button } from "../components/ui/button";
 import { Slider } from "../components/ui/slider";
 import { Input } from "../components/ui/input";
-import useToast from "../hooks/use-toast";
+import { useToast } from "../hooks/use-toast";
 import {
   Select,
   SelectContent,
