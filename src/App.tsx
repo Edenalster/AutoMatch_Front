@@ -50,6 +50,7 @@ const App: React.FC = () => {
         <Route path="/create-tournament" element={<CreateTournament />} />
         <Route path="/lobby/:id" element={<GameLobby />} />
         <Route path="/chess-board" element={<ChessBoard />} />
+        <Route path="/chessboard" element={<ChessBoard />} />
         {/* Protected routes - redirect to login if not authenticated */}
         <Route
           path="/play"

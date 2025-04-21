@@ -44,6 +44,7 @@ const CreateTournament = () => {
       gameType: "blitz",
     },
   });
+
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -57,24 +58,30 @@ const CreateTournament = () => {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       const userId = localStorage.getItem("user");
-      console.log("User ID:", userId);
       const lichessId = localStorage.getItem("lichessId");
 
       const response = await axios.post(
         "http://localhost:3060/api/lichess/tournaments",
         {
           createdBy: userId,
-          playerIds: [lichessId || "placeholderUser"], // must be array, and >= 2 to avoid backend validation
+          playerIds: [lichessId || "placeholderUser"],
           maxPlayers: parseInt(values.maxPlayers),
           tournamentName: values.tournamentName,
           gameType: values.gameType,
           entryFee: parseInt(values.entryFee),
         }
       );
-      console.log("Sending maxPlayers:", parseInt(values.maxPlayers));
 
       const tournamentId = response.data.tournament._id;
-      navigate(`/lobby/${tournamentId}`);
+      const lichessGameUrl = response.data.games?.[0];
+
+      if (lichessGameUrl) {
+        // ✅ Navigate to ChessBoard with gameUrl as query param
+        navigate(`/chessboard?gameUrl=${encodeURIComponent(lichessGameUrl)}`);
+      } else {
+        // fallback if no game URL returned
+        navigate(`/lobby/${tournamentId}`);
+      }
     } catch (err) {
       console.error("Failed to create tournament", err);
     }
@@ -86,7 +93,7 @@ const CreateTournament = () => {
       <div className="absolute inset-0 bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90 z-0"></div>
       <div className="absolute inset-0 chess-board-bg opacity-15 z-0"></div>
 
-      {/* Decorative blurred elements for dynamic visuals */}
+      {/* Decorative blurred elements */}
       <div className="absolute top-20 left-10 w-64 h-64 bg-chess-gold/10 rounded-full filter blur-3xl animate-pulse-soft"></div>
       <div className="absolute bottom-20 right-10 w-72 h-72 bg-chess-secondary/10 rounded-full filter blur-3xl animate-pulse-soft"></div>
 
@@ -217,19 +224,16 @@ const CreateTournament = () => {
                     </FormItem>
                   )}
                 />
+
                 <div className="flex flex-row gap-10">
                   <Button
                     onClick={handleClick}
-                    className="w-full secondary-btn py-6 bg-blue-900 text-white hover:bg-blue-700 "
+                    className="w-full secondary-btn py-6 bg-blue-900 text-white hover:bg-blue-700"
                   >
                     Cancel
                   </Button>
 
-                  <Button
-                    type="submit"
-                    className="primary-btn w-full py-6"
-                    // onClick={handleCreateTournament}
-                  >
+                  <Button type="submit" className="primary-btn w-full py-6">
                     Create Tournament
                   </Button>
                 </div>
