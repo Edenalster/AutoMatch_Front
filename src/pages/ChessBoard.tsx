@@ -30,7 +30,8 @@ const ChessBoard = () => {
     if (gameUrl) {
       // Extract just the game ID from the full URL
       const gameId = gameUrl.split("/").pop();
-      navigate(`/after-game?gameId=${gameId}`);
+      const tournamentId = localStorage.getItem("tournamentId");
+      navigate(`/after-game?gameId=${gameId}&tournamentId=${tournamentId}`);
     } else {
       navigate("/after-game");
     }
