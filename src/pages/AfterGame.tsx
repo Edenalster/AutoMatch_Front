@@ -6,18 +6,41 @@ const AfterGame = () => {
   const [status, setStatus] = useState<string | null>(null);
   const [whitePlayer, setWhitePlayer] = useState<string | null>(null);
   const [blackPlayer, setBlackPlayer] = useState<string | null>(null);
+  const [winner, setWinner] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const gameId = new URLSearchParams(location.search).get("gameId");
 
+  const [tournamentId, setTournamentId] = useState<string | null>(null);
+  const [tournamentName, setTournamentName] = useState<string | null>(null);
+
+  // Fetching the game result when the after game page loads
   useEffect(() => {
     if (!gameId) {
       setLoading(false);
       setError("No game ID provided");
       return;
     }
+
+    // Get the tournament name directly from localStorage
+    const storedTournamentName = localStorage.getItem("tournamentName1");
+    console.log("name", storedTournamentName);
+    if (storedTournamentName) {
+      setTournamentName(storedTournamentName);
+      console.log(
+        "✅ Tournament name retrieved from localStorage:",
+        storedTournamentName
+      );
+    } else {
+      setTournamentName("Chess Tournament"); // Fallback name
+      console.log("⚠️ No tournament name found in localStorage, using default");
+    }
+
+    // Retrieve the tournamentId from URL or localStorage
+    const storedTournamentId = localStorage.getItem("tournamentId");
+    setTournamentId(storedTournamentId);
 
     const fetchGameResult = async () => {
       try {
@@ -67,6 +90,18 @@ const AfterGame = () => {
           };
 
           await fetchUsernames();
+
+          // Determine winner based on status
+          if (data.status === "mate") {
+            // For checkmate, the winner field might be "white" or "black"
+            setWinner(data.winner);
+          } else if (data.status === "resign") {
+            // If the game was resigned, determine the winner directly from data.winner
+            // The Lichess API should provide "white" or "black" in the winner field
+            setWinner(data.winner);
+          } else if (data.status === "draw") {
+            setWinner("draw"); // If it's a draw
+          }
         } else {
           console.log("Non-JSON response from Lichess");
 
@@ -92,7 +127,67 @@ const AfterGame = () => {
     };
 
     fetchGameResult();
-  }, [gameId]);
+    const updateMatchInDB = async () => {
+      if (gameId && (winner || status === "draw")) {
+        try {
+          console.log("🎮 Updating match in DB with:", {
+            gameId,
+            winner,
+            status,
+          });
+          console.log("winner", winner);
+
+          const lichessUrl = `https://lichess.org/${gameId}`;
+
+          // Use the correct endpoint
+          const apiUrl = `http://localhost:3060/tournaments/updateMatchResultByLichessUrl`;
+
+          const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              lichessUrl,
+              winner, // 'white', 'black', or 'draw'
+              status: status || "completed", // Send the game status
+            }),
+          });
+
+          const responseText = await response.text();
+
+          if (!response.ok) {
+            console.error(
+              `Server responded with ${response.status}: ${responseText}`
+            );
+            throw new Error(`Error ${response.status}: ${responseText}`);
+          }
+
+          // Try to parse as JSON if possible
+          let data;
+          try {
+            data = JSON.parse(responseText);
+            console.log("✅ Match updated successfully:", data);
+          } catch {
+            console.log("Response was not JSON:", responseText);
+          }
+        } catch (error) {
+          console.error("❌ Error updating match in DB:", error);
+        }
+      } else {
+        console.log("⏳ Waiting for game data before updating DB...", {
+          gameId,
+          winner,
+          status,
+        });
+      }
+    };
+
+    // Call updateMatchInDB when we have winner and status information
+    if (gameId && (winner || status === "draw") && !loading) {
+      updateMatchInDB();
+    }
+  }, [gameId, winner, status, tournamentId]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -202,13 +297,25 @@ const AfterGame = () => {
       <div className="absolute bottom-1/4 right-10 w-80 h-80 bg-chess-secondary/20 rounded-full filter blur-3xl animate-pulse-soft"></div>
 
       <div className="bg-gray-800 p-8 rounded-lg shadow-lg text-center max-w-md w-full z-10">
-        <h1 className="text-4xl font-bold mb-6">Classic Tournament</h1>
-        <p className="text-xl font-medium mb-4">Round 1 Match</p>
+        <h1 className="text-4xl font-bold mb-6">{tournamentName}</h1>
 
         {/* Displaying Players */}
         <div className="text-2xl font-semibold mb-4">
           <span className="text-chess-gold">{whitePlayer || "White"}</span> VS{" "}
           <span className="text-chess-gold">{blackPlayer || "Black"}</span>
+        </div>
+
+        {/* Displaying Players */}
+        <div className="text-2xl font-semibold mb-4">
+          WINNER:{" "}
+          <span className="text-chess-gold">
+            {winner === "white"
+              ? whitePlayer
+              : winner === "black"
+              ? blackPlayer
+              : "Draw"}
+          </span>{" "}
+          {/* Display winner name */}
         </div>
 
         {/* Displaying the result */}

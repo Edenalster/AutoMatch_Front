@@ -63,23 +63,24 @@ const CreateTournament = () => {
       const response = await axios.post(
         "http://localhost:3060/api/lichess/tournaments",
         {
+          tournamentName: values.tournamentName,
           createdBy: userId,
           playerIds: [lichessId || "placeholderUser"],
           maxPlayers: parseInt(values.maxPlayers),
-          tournamentName: values.tournamentName,
           gameType: values.gameType,
           entryFee: parseInt(values.entryFee),
         }
       );
 
-      const tournamentId = response.data.tournament._id;
+      const tournamentId = response.data.tournament._id; // Get the tournamentId
       const lichessGameUrl = response.data.games?.[0];
 
+      // Store the tournamentId in localStorage
+      localStorage.setItem("tournamentId", tournamentId);
+
       if (lichessGameUrl) {
-        // ✅ Navigate to ChessBoard with gameUrl as query param
         navigate(`/chessboard?gameUrl=${encodeURIComponent(lichessGameUrl)}`);
       } else {
-        // fallback if no game URL returned
         navigate(`/lobby/${tournamentId}`);
       }
     } catch (err) {

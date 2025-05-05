@@ -50,6 +50,8 @@ const GameLobby = () => {
 
       setMaxPlayers(data.maxPlayers);
       setTournamentName(data.tournamentName || "Tournament");
+      localStorage.setItem("tournamentName1", data.tournamentName);
+      console.log("name1:", data.tournamentName);
 
       // Check if the current user is the creator
       if (userId && data.createdBy === userId) {
@@ -96,6 +98,7 @@ const GameLobby = () => {
         isCreator
       ) {
         console.log("🧠 Auto-starting tournament...");
+
         await fetch(
           `http://localhost:3060/api/lichess/tournaments/${tournamentId}/start`,
           { method: "POST" }

@@ -27,7 +27,7 @@ const Home = () => {
 
   return (
     <>
-      <Navbar />
+      <Navbar showItems={true} />
       <Hero />
       <FeatureSection />
       <PrizePool />

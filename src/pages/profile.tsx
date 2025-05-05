@@ -35,6 +35,16 @@ const ProfilePage = () => {
     }[];
   }
 
+  interface Game {
+    perf: string;
+    winner?: string;
+    createdAt: number;
+    players: {
+      white: { user?: { id: string } };
+      black: { user?: { id: string } };
+    };
+  }
+
   const [user, setUser] = useState<User | null>(null);
   const lichessId = localStorage.getItem("lichessId");
 
@@ -45,6 +55,13 @@ const ProfilePage = () => {
         const res = await fetch(`https://lichess.org/api/user/${lichessId}`);
         const data = await res.json();
 
+        // Log to check the response from Lichess API
+        console.log("Lichess API Data:", data);
+
+        // Check if the 'perfs' object contains the expected data
+        console.log("Lichess perfs data:", data.perfs);
+
+        // Fetching recent games
         const gamesRes = await fetch(
           `https://lichess.org/api/games/user/${lichessId}?max=5`,
           {
@@ -55,19 +72,10 @@ const ProfilePage = () => {
         const games = gamesText
           .trim()
           .split("\n")
-          .filter((line) => line.trim().length > 0) // ✅ ignore blank lines
+          .filter((line) => line.trim().length > 0)
           .map((line) => JSON.parse(line));
 
-        interface Game {
-          perf: string;
-          winner: string | null;
-          players: {
-            white: { user?: { id: string }; rating: number };
-            black: { user?: { id: string }; rating: number };
-          };
-          createdAt: number;
-        }
-
+        // Process recent matches
         const recentMatches = games.map((game: Game) => {
           const userIsWhite =
             game.players.white.user?.id?.toLowerCase() ===
@@ -88,6 +96,7 @@ const ProfilePage = () => {
           };
         });
 
+        // Process tournament results
         const tournamentResults = games.map((game: Game) => {
           const userIsWhite =
             game.players.white.user?.id?.toLowerCase() ===
