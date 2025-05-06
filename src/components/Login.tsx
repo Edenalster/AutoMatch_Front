@@ -14,6 +14,8 @@ interface IUser {
   accessToken?: string;
   refreshToken?: string;
 }
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
+console.log("🔗 backendUrl =", import.meta.env.VITE_BACKEND_URL);
 
 const Login: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -44,10 +46,8 @@ const Login: React.FC = () => {
       // Store the email in localStorage so Navbar can use it
       localStorage.setItem("formEmail", formData.email);
 
-      const response = await axios.post(
-        "http://localhost:3060/auth/login",
-        formData
-      );
+      const response = await axios.post(`${backendUrl}/auth/login`, formData);
+
 
       if (response.status === 200) {
         const data = response.data;
@@ -94,11 +94,8 @@ const Login: React.FC = () => {
     credentialResponse: CredentialResponse
   ): Promise<IUser> => {
     try {
-      console.log("Google Signin!");
-      const res = await axios.post(
-        "http://localhost:3060/auth/google",
-        credentialResponse
-      );
+      const res = await axios.post(`${backendUrl}/auth/google`, credentialResponse);
+
       console.log("Google Signin success!", res.data);
 
       // Store tokens and user data
@@ -143,7 +140,7 @@ const Login: React.FC = () => {
 
   const handleLichessLogin = () => {
     // Redirect to the lichess login endpoint
-    window.location.href = "http://localhost:3060/auth/lichess/login";
+    window.location.href = `${backendUrl}/auth/lichess/login`;
   };
 
   interface LichessLoginData {

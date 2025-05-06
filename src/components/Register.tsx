@@ -24,6 +24,9 @@ const Register: React.FC = () => {
     }));
   };
 
+
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -45,7 +48,7 @@ const Register: React.FC = () => {
 
       console.log("🔍 Sending registration request with:", registerData);
       
-      const response = await axios.post("http://localhost:3060/auth/register", registerData);
+      const response = await axios.post(`${backendUrl}/auth/register`, registerData);
 
       if (response.status === 200) {
         console.log("✅ Registration successful!", response.data);
@@ -86,7 +89,7 @@ const Register: React.FC = () => {
     console.log("✅ Google authentication successful!", credentialResponse);
     try {
       // Send the credential to your backend - same endpoint as login
-      const res = await axios.post("http://localhost:3060/auth/google", credentialResponse);
+      const res = await axios.post(`${backendUrl}/auth/google`, credentialResponse);
       console.log("Google authentication success!", res.data);
 
       // Store tokens and user data
@@ -118,7 +121,7 @@ const Register: React.FC = () => {
 
   const handleLichessAuth = () => {
     // Redirect to the lichess login endpoint - same as login
-    window.location.href = "http://localhost:3060/auth/lichess/login";
+    window.location.href = `${backendUrl}/auth/lichess/login`;
   };
 
   return (

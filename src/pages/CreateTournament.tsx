@@ -46,6 +46,7 @@ const CreateTournament = () => {
   });
 
   const navigate = useNavigate();
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
   const handleClick = () => {
     navigate("/"); // Navigate to the tournaments page
@@ -61,7 +62,7 @@ const CreateTournament = () => {
       const lichessId = localStorage.getItem("lichessId");
 
       const response = await axios.post(
-        "http://localhost:3060/api/lichess/tournaments",
+        `${backendUrl}/api/lichess/tournaments`,
         {
           tournamentName: values.tournamentName,
           createdBy: userId,

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && cp -r ./dist/* ../automatch/front/",
+    "build": "cp src/.env.production .env && tsc -b && vite build && cp -r ./dist/* ../AutoMatch-Back/front/ && rm .env",
     "lint": "eslint .",
     "preview": "vite preview"
   },

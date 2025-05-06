@@ -18,6 +18,7 @@ interface Match {
   player2: string;
   lichessUrl: string;
 }
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 const GameLobby = () => {
   const { id: tournamentId } = useParams();
@@ -36,9 +37,8 @@ const GameLobby = () => {
   const fetchTournament = async () => {
     console.log("🔄 Fetching tournament data...");
     try {
-      const res = await fetch(
-        `http://localhost:3060/api/lichess/tournaments/${tournamentId}`
-      );
+      const res = await fetch(`${backendUrl}/api/lichess/tournaments/${tournamentId}`);
+
       const data = await res.json();
 
       console.log("🔍 Tournament data fetched:", data);
@@ -99,10 +99,8 @@ const GameLobby = () => {
       ) {
         console.log("🧠 Auto-starting tournament...");
 
-        await fetch(
-          `http://localhost:3060/api/lichess/tournaments/${tournamentId}/start`,
-          { method: "POST" }
-        );
+        await fetch(`${backendUrl}/api/lichess/tournaments/${tournamentId}/start`, { method: "POST" });
+
       }
 
       // If tournament is started, check if the player has a match
@@ -130,7 +128,7 @@ const GameLobby = () => {
     console.log("🔄 User attempting to join the tournament...");
     try {
       const res = await fetch(
-        `http://localhost:3060/api/lichess/tournaments/${tournamentId}/join`,
+        `${backendUrl}/api/lichess/tournaments/${tournamentId}/join`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -177,7 +175,7 @@ const GameLobby = () => {
                 <p className="text-center text-sm text-muted-foreground">
                   Share this lobby:{" "}
                   <span className="text-chess-gold font-semibold">
-                    http://localhost:5173/lobby/{tournamentId}
+                  https://automatch.cs.colman.ac.il/lobby/{tournamentId}
                   </span>
                 </p>
 

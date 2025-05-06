@@ -16,6 +16,9 @@ const AfterGame = () => {
   const [tournamentId, setTournamentId] = useState<string | null>(null);
   const [tournamentName, setTournamentName] = useState<string | null>(null);
 
+
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
   // Fetching the game result when the after game page loads
   useEffect(() => {
     if (!gameId) {
@@ -140,7 +143,7 @@ const AfterGame = () => {
           const lichessUrl = `https://lichess.org/${gameId}`;
 
           // Use the correct endpoint
-          const apiUrl = `http://localhost:3060/tournaments/updateMatchResultByLichessUrl`;
+          const apiUrl = `${backendUrl}/tournaments/updateMatchResultByLichessUrl`;
 
           const response = await fetch(apiUrl, {
             method: "POST",
