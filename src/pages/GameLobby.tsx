@@ -24,7 +24,7 @@ const GameLobby = () => {
   const { id: tournamentId } = useParams();
   const navigate = useNavigate();
   const lichessId = localStorage.getItem("lichessId");
-  const userId = localStorage.getItem("user");
+  const userId = localStorage.getItem("userId");
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [maxPlayers, setMaxPlayers] = useState(0);
@@ -54,9 +54,14 @@ const GameLobby = () => {
       console.log("name1:", data.tournamentName);
 
       // Check if the current user is the creator
-      if (userId && data.createdBy === userId) {
+      if (userId && String(data.createdBy) === String(userId)) {
         setIsCreator(true);
-        console.log(`🏆 User is the creator of this tournament.`);
+        console.log("✅ User is the creator of this tournament.");
+      } else {
+        console.log("🟥 Creator check failed —",
+          "\nuserId:", userId,
+          "\ndata.createdBy:", data.createdBy
+        );
       }
 
       // Check if the user has joined the tournament
@@ -92,6 +97,12 @@ const GameLobby = () => {
 
       // Auto-start tournament if it is full and hasn't started yet
       const tournamentStarted = data.rounds?.length > 0;
+      console.log("🧠 Start check:",
+        "\n- playerIds:", data.playerIds,
+        "\n- maxPlayers:", data.maxPlayers,
+        "\n- tournamentStarted:", tournamentStarted,
+        "\n- isCreator:", isCreator
+      );
       if (
         data.playerIds.length === data.maxPlayers &&
         !tournamentStarted &&

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Trophy } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link,  useLocation } from "react-router-dom";
 import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 
@@ -15,71 +15,46 @@ interface IUser {
   refreshToken?: string;
 }
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
-console.log("🔗 backendUrl =", import.meta.env.VITE_BACKEND_URL);
+console.log("🔗 backendUrl =", backendUrl);
+
 
 const Login: React.FC = () => {
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
+  const [formData, setFormData] = useState({ email: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
+  const location = useLocation();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     setIsLoading(true);
     setMessage("");
-
     try {
-      console.log("🔍 Sending login request with:", formData); // Debugging
-
-      // Store the email in localStorage so Navbar can use it
+      console.log("🔍 Sending login request with:", formData);
       localStorage.setItem("formEmail", formData.email);
-
       const response = await axios.post(`${backendUrl}/auth/login`, formData);
-
-
       if (response.status === 200) {
         const data = response.data;
         console.log("✅ Login successful!", data);
-
-        // Store tokens and user ID in localStorage
         if (data.accessToken) {
           localStorage.setItem("token", data.accessToken);
           localStorage.setItem("user", data._id);
-          
-          // If the response includes the email, store it 
-          if (data.email) {
-            localStorage.setItem("email", data.email);
-          } else {
-            // Keep the form email if response doesn't include email
-            localStorage.setItem("email", formData.email);
-          }
-        } else {
-          console.error("🛑 No accessToken received from backend!");
+          localStorage.setItem("email", data.email || formData.email);
         }
-
         setMessage("Login successful!");
-        setTimeout(() => navigate("/"), 2000);
+        // full reload to ensure token is read before any redirects
+        window.location.replace("/");
       } else {
         setMessage(response.data.message || "Failed to log in.");
       }
-    } catch (error) {
+    } catch (error: any) {
       if (axios.isAxiosError(error)) {
-        console.error(
-          "🛑 Login failed:",
-          error.response?.data || error.message
-        );
+        console.error("🛑 Login failed:", error.response?.data || error.message);
         setMessage("Invalid email or password.");
       } else {
         console.error("🛑 Login failed:", error);
@@ -90,43 +65,22 @@ const Login: React.FC = () => {
     }
   };
 
-  const googleSignin = async (
-    credentialResponse: CredentialResponse
-  ): Promise<IUser> => {
-    try {
-      const res = await axios.post(`${backendUrl}/auth/google`, credentialResponse);
-
-      console.log("Google Signin success!", res.data);
-
-      // Store tokens and user data
-      if (res.data.accessToken) {
-        localStorage.setItem("token", res.data.accessToken);
-        localStorage.setItem("user", JSON.stringify(res.data.email));
-        
-        // Also store email directly for the navbar
-        if (res.data.email) {
-          localStorage.setItem("email", res.data.email);
-        }
-      } else {
-        console.warn("No accessToken received from backend!");
-      }
-
-      return res.data;
-    } catch (error) {
-      console.error("Google Signin error!", error);
-      throw error;
+  const googleSignin = async (credentialResponse: CredentialResponse): Promise<IUser> => {
+    const res = await axios.post(`${backendUrl}/auth/google`, credentialResponse);
+    console.log("Google Signin success!", res.data);
+    if (res.data.accessToken) {
+      localStorage.setItem("token", res.data.accessToken);
+      localStorage.setItem("user", res.data._id);
+      localStorage.setItem("email", res.data.email || "");
     }
+    return res.data;
   };
 
-  const onGoogleLoginSuccess = async (
-    credentialResponse: CredentialResponse
-  ) => {
+  const onGoogleLoginSuccess = async (credentialResponse: CredentialResponse) => {
     console.log("✅ Google login successful!", credentialResponse);
     try {
-      const res = await googleSignin(credentialResponse);
-      console.log("userID", res._id);
-      console.log("Google Signin success!", res);
-      navigate("/");
+      await googleSignin(credentialResponse);
+      window.location.replace("/");
     } catch (error) {
       console.log("Google Signin error!", error);
       setMessage("Google sign-in failed. Please try again.");
@@ -139,7 +93,6 @@ const Login: React.FC = () => {
   };
 
   const handleLichessLogin = () => {
-    // Redirect to the lichess login endpoint
     window.location.href = `${backendUrl}/auth/lichess/login`;
   };
 
@@ -153,9 +106,9 @@ const Login: React.FC = () => {
     console.log("✅ Lichess login successful!", data);
     if (data.accessToken) {
       localStorage.setItem("token", data.accessToken);
-      localStorage.setItem("user", data.userId);
+      localStorage.setItem("userId", data.userId);
       localStorage.setItem("lichessId", data.lichessId || "");
-      navigate("/");
+      window.location.replace("/");
     } else {
       console.error("🛑 No accessToken received from Lichess!");
       setMessage("Lichess login failed. Please try again.");
@@ -167,25 +120,20 @@ const Login: React.FC = () => {
     setMessage("Lichess login failed. Please try again.");
   };
 
+  // react to query params whenever they change
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(location.search);
     const token = params.get("token");
     const userId = params.get("userId");
     const lichessId = params.get("lichessId");
-
     if (token && userId) {
-      onLichessLoginSuccess({
-        accessToken: token,
-        userId,
-        lichessId: lichessId || undefined,
-      });
+      onLichessLoginSuccess({ accessToken: token, userId, lichessId: lichessId || undefined });
     }
-
     const lichessError = params.get("lichessError");
     if (lichessError) {
       onLichessLoginError({ message: lichessError });
     }
-  }, []);
+  }, [location.search]);
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden">

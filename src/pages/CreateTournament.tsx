@@ -58,18 +58,25 @@ const CreateTournament = () => {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      const userId = localStorage.getItem("user");
+      const userId   = localStorage.getItem("userId");      // ← changed
+      console.log("userId", userId)
       const lichessId = localStorage.getItem("lichessId");
-
+      const token = localStorage.getItem("token");
       const response = await axios.post(
         `${backendUrl}/api/lichess/tournaments`,
         {
+          createdBy:      userId!,
           tournamentName: values.tournamentName,
-          createdBy: userId,
-          playerIds: [lichessId || "placeholderUser"],
+          playerIds: [lichessId || "placeholder"],
           maxPlayers: parseInt(values.maxPlayers),
           gameType: values.gameType,
           entryFee: parseInt(values.entryFee),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // ✅ Token from login
+          },
+          withCredentials: true, // ✅ Important if your backend sets cookies/session
         }
       );
 
@@ -157,7 +164,7 @@ const CreateTournament = () => {
                                 <SelectValue placeholder="Select max players" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="2">2 Players</SelectItem>
+                                <SelectItem value="4">4 Players</SelectItem>
                                 <SelectItem value="8">8 Players</SelectItem>
                                 <SelectItem value="16">16 Players</SelectItem>
                                 <SelectItem value="32">32 Players</SelectItem>

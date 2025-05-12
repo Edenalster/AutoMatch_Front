@@ -16,9 +16,6 @@ const AfterGame = () => {
   const [tournamentId, setTournamentId] = useState<string | null>(null);
   const [tournamentName, setTournamentName] = useState<string | null>(null);
 
-
-  const backendUrl = import.meta.env.VITE_BACKEND_URL;
-
   // Fetching the game result when the after game page loads
   useEffect(() => {
     if (!gameId) {
@@ -96,14 +93,11 @@ const AfterGame = () => {
 
           // Determine winner based on status
           if (data.status === "mate") {
-            // For checkmate, the winner field might be "white" or "black"
             setWinner(data.winner);
           } else if (data.status === "resign") {
-            // If the game was resigned, determine the winner directly from data.winner
-            // The Lichess API should provide "white" or "black" in the winner field
             setWinner(data.winner);
           } else if (data.status === "draw") {
-            setWinner("draw"); // If it's a draw
+            setWinner("draw");
           }
         } else {
           console.log("Non-JSON response from Lichess");
@@ -143,7 +137,7 @@ const AfterGame = () => {
           const lichessUrl = `https://lichess.org/${gameId}`;
 
           // Use the correct endpoint
-          const apiUrl = `${backendUrl}/tournaments/updateMatchResultByLichessUrl`;
+          const apiUrl = `http://localhost:3060/tournaments/updateMatchResultByLichessUrl`;
 
           const response = await fetch(apiUrl, {
             method: "POST",
@@ -152,8 +146,8 @@ const AfterGame = () => {
             },
             body: JSON.stringify({
               lichessUrl,
-              winner, // 'white', 'black', or 'draw'
-              status: status || "completed", // Send the game status
+              winner,
+              status: status || "completed",
             }),
           });
 
@@ -166,7 +160,6 @@ const AfterGame = () => {
             throw new Error(`Error ${response.status}: ${responseText}`);
           }
 
-          // Try to parse as JSON if possible
           let data;
           try {
             data = JSON.parse(responseText);
@@ -190,7 +183,20 @@ const AfterGame = () => {
     if (gameId && (winner || status === "draw") && !loading) {
       updateMatchInDB();
     }
+
+    // Set interval to refresh every 5 minutes (300000 milliseconds)
+    const interval = setInterval(() => {
+      window.location.reload();
+    }, 120000); // 5 minutes in milliseconds
+
+    // Cleanup the interval on component unmount
+    return () => clearInterval(interval);
   }, [gameId, winner, status, tournamentId]);
+
+  // Function to handle navigation to the tournament bracket page
+  const handleBackToTournament = () => {
+    navigate("/tournament"); // This will navigate to the "/tournament" route
+  };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -247,7 +253,7 @@ const AfterGame = () => {
   };
 
   const handleGoToTournament = () => {
-    navigate("/tournament");
+    navigate("/game-result");
   };
 
   if (loading) {
@@ -277,10 +283,10 @@ const AfterGame = () => {
               Refresh
             </button>
             <button
-              onClick={handleGoToTournament}
-              className="bg-gray-500 py-2 px-4 rounded hover:bg-gray-600 transition"
+              onClick={handleBackToTournament} // This will trigger the navigation
+              className="py-2 px-6 primary-btn"
             >
-              Back to Tournament
+              Tournament Screen
             </button>
           </div>
         </div>
