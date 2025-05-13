@@ -15,8 +15,9 @@ const AfterGame = () => {
 
   const [tournamentId, setTournamentId] = useState<string | null>(null);
   const [tournamentName, setTournamentName] = useState<string | null>(null);
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-  // Fetching the game result when the after game page loads
+  // Fetch game result from Lichess
   useEffect(() => {
     if (!gameId) {
       setLoading(false);
@@ -24,178 +25,119 @@ const AfterGame = () => {
       return;
     }
 
-    // Get the tournament name directly from localStorage
     const storedTournamentName = localStorage.getItem("tournamentName1");
-    console.log("name", storedTournamentName);
-    if (storedTournamentName) {
-      setTournamentName(storedTournamentName);
-      console.log(
-        "✅ Tournament name retrieved from localStorage:",
-        storedTournamentName
-      );
-    } else {
-      setTournamentName("Chess Tournament"); // Fallback name
-      console.log("⚠️ No tournament name found in localStorage, using default");
-    }
+    setTournamentName(storedTournamentName || "Chess Tournament");
 
-    // Retrieve the tournamentId from URL or localStorage
     const storedTournamentId = localStorage.getItem("tournamentId");
     setTournamentId(storedTournamentId);
 
     const fetchGameResult = async () => {
       try {
         console.log(`Fetching game result for ID: ${gameId}`);
-
-        // Make a direct request to the Lichess API
         const response = await fetch(`https://lichess.org/api/game/${gameId}`, {
-          headers: {
-            Accept: "application/json",
-          },
+          headers: { Accept: "application/json" },
         });
 
         if (!response.ok) {
-          throw new Error(
-            `Lichess API returned ${response.status}: ${response.statusText}`
-          );
+          throw new Error(`Lichess API returned ${response.status}: ${response.statusText}`);
         }
 
         const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
+        if (contentType?.includes("application/json")) {
           const data = await response.json();
-          console.log("Game data:", data);
-
-          // Extract the status from data
           setStatus(data.status || "unknown");
 
-          // Fetch the usernames for black and white players
-          const fetchUsernames = async () => {
-            try {
-              const whitePlayerResponse = await fetch(
-                `https://lichess.org/api/user/${data.players.white.userId}`
-              );
-              const blackPlayerResponse = await fetch(
-                `https://lichess.org/api/user/${data.players.black.userId}`
-              );
+          const whiteId = data.players?.white?.userId;
+          const blackId = data.players?.black?.userId;
 
-              if (whitePlayerResponse.ok && blackPlayerResponse.ok) {
-                const whitePlayerData = await whitePlayerResponse.json();
-                const blackPlayerData = await blackPlayerResponse.json();
+          if (whiteId) {
+            const res = await fetch(`https://lichess.org/api/user/${whiteId}`);
+            const whiteData = await res.json();
+            setWhitePlayer(whiteData.username || "Unknown");
+          }
 
-                setWhitePlayer(whitePlayerData.username || "Unknown");
-                setBlackPlayer(blackPlayerData.username || "Unknown");
-              }
-            } catch (err) {
-              console.error("Error fetching player usernames:", err);
-            }
-          };
+          if (blackId) {
+            const res = await fetch(`https://lichess.org/api/user/${blackId}`);
+            const blackData = await res.json();
+            setBlackPlayer(blackData.username || "Unknown");
+          }
 
-          await fetchUsernames();
-
-          // Determine winner based on status
-          if (data.status === "mate") {
-            setWinner(data.winner);
-          } else if (data.status === "resign") {
+          if (data.status === "mate" || data.status === "resign") {
             setWinner(data.winner);
           } else if (data.status === "draw") {
             setWinner("draw");
           }
         } else {
-          console.log("Non-JSON response from Lichess");
-
           try {
             const checkResponse = await fetch(`https://lichess.org/${gameId}`);
-            if (checkResponse.ok) {
-              setStatus("ongoing");
-            } else {
-              setError("Game not found");
-            }
+            setStatus(checkResponse.ok ? "ongoing" : "not_found");
+            if (!checkResponse.ok) setError("Game not found");
           } catch {
             setError("Could not verify game status");
           }
         }
       } catch (err) {
         console.error("❌ Error fetching game result:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch game result"
-        );
+        setError(err instanceof Error ? err.message : "Failed to fetch game result");
       } finally {
         setLoading(false);
       }
     };
 
     fetchGameResult();
+
+    const interval = setInterval(() => {
+      window.location.reload();
+    }, 120000);
+
+    return () => clearInterval(interval);
+  }, [gameId]);
+
+  // Update match result in DB when winner/status are ready
+  useEffect(() => {
     const updateMatchInDB = async () => {
       if (gameId && (winner || status === "draw")) {
         try {
-          console.log("🎮 Updating match in DB with:", {
-            gameId,
-            winner,
-            status,
-          });
-          console.log("winner", winner);
+          console.log("🎮 Updating match in DB with:", { gameId, winner, status });
 
-          const lichessUrl = `https://lichess.org/${gameId}`;
-
-          // Use the correct endpoint
-          const apiUrl = `http://localhost:3060/tournaments/updateMatchResultByLichessUrl`;
-
+          const apiUrl = `${backendUrl}/api/lichess/tournaments/updateMatchResultByLichessUrl`;
           const response = await fetch(apiUrl, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              lichessUrl,
+              lichessUrl: `https://lichess.org/${gameId}`,
               winner,
               status: status || "completed",
             }),
           });
 
-          const responseText = await response.text();
-
+          const text = await response.text();
           if (!response.ok) {
-            console.error(
-              `Server responded with ${response.status}: ${responseText}`
-            );
-            throw new Error(`Error ${response.status}: ${responseText}`);
+            console.error(`Server responded with ${response.status}: ${text}`);
+            throw new Error(`Error ${response.status}: ${text}`);
           }
 
-          let data;
           try {
-            data = JSON.parse(responseText);
+            const data = JSON.parse(text);
             console.log("✅ Match updated successfully:", data);
           } catch {
-            console.log("Response was not JSON:", responseText);
+            console.log("Response was not JSON:", text);
           }
-        } catch (error) {
-          console.error("❌ Error updating match in DB:", error);
+        } catch (err) {
+          console.error("❌ Error updating match in DB:", err);
         }
-      } else {
-        console.log("⏳ Waiting for game data before updating DB...", {
-          gameId,
-          winner,
-          status,
-        });
       }
     };
 
-    // Call updateMatchInDB when we have winner and status information
-    if (gameId && (winner || status === "draw") && !loading) {
-      updateMatchInDB();
-    }
+    if (!loading) updateMatchInDB();
+  }, [winner, status, gameId, backendUrl, loading]);
 
-    // Set interval to refresh every 5 minutes (300000 milliseconds)
-    const interval = setInterval(() => {
-      window.location.reload();
-    }, 120000); // 5 minutes in milliseconds
-
-    // Cleanup the interval on component unmount
-    return () => clearInterval(interval);
-  }, [gameId, winner, status, tournamentId]);
-
-  // Function to handle navigation to the tournament bracket page
   const handleBackToTournament = () => {
-    navigate("/tournament"); // This will navigate to the "/tournament" route
+    navigate("/tournament");
+  };
+
+  const handleGoToTournament = () => {
+    navigate(`/bracket/${tournamentId}`);
   };
 
   const getStatusColor = (status: string) => {
@@ -250,10 +192,6 @@ const AfterGame = () => {
       default:
         return status || "Unknown status";
     }
-  };
-
-  const handleGoToTournament = () => {
-    navigate("/game-result");
   };
 
   if (loading) {
@@ -350,13 +288,13 @@ const AfterGame = () => {
         <div className="mt-8 flex justify-center gap-6">
           <button
             onClick={() => (window.location.href = "/")}
-            className=" py-2 px-6 secondary-btn  bg-blue-900 text-white hover:bg-blue-700"
+            className="py-2 px-6 secondary-btn bg-blue-900 text-white hover:bg-blue-700"
           >
             Back to Home
           </button>
           <button
             onClick={handleGoToTournament}
-            className=" py-2 px-6  primary-btn  "
+            className="py-2 px-6 primary-btn"
           >
             Tournament Screen
           </button>

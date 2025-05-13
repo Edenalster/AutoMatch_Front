@@ -67,7 +67,7 @@ const CreateTournament = () => {
         {
           createdBy:      userId!,
           tournamentName: values.tournamentName,
-          playerIds: [lichessId || "placeholder"],
+          playerIds: [lichessId], // רק היוצר
           maxPlayers: parseInt(values.maxPlayers),
           gameType: values.gameType,
           entryFee: parseInt(values.entryFee),
@@ -164,6 +164,7 @@ const CreateTournament = () => {
                                 <SelectValue placeholder="Select max players" />
                               </SelectTrigger>
                               <SelectContent>
+                              <SelectItem value="2">2 Players</SelectItem>
                                 <SelectItem value="4">4 Players</SelectItem>
                                 <SelectItem value="8">8 Players</SelectItem>
                                 <SelectItem value="16">16 Players</SelectItem>

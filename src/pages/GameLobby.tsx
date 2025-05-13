@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
@@ -32,27 +32,30 @@ const GameLobby = () => {
   const [isCreator, setIsCreator] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  
+  // שימוש ב-useRef במקום useState למטמון כי אין צורך לרנדר מחדש כשהמטמון משתנה
+  const playersCacheRef = useRef<{[id: string]: Player}>({});
 
   // Fetch tournament data and update state
   const fetchTournament = async () => {
     console.log("🔄 Fetching tournament data...");
     try {
       const res = await fetch(`${backendUrl}/api/lichess/tournaments/${tournamentId}`);
-
+  
       const data = await res.json();
-
+  
       console.log("🔍 Tournament data fetched:", data);
-
+  
       if (!data) {
         console.log("Tournament not found");
         return;
       }
-
+  
       setMaxPlayers(data.maxPlayers);
       setTournamentName(data.tournamentName || "Tournament");
       localStorage.setItem("tournamentName1", data.tournamentName);
       console.log("name1:", data.tournamentName);
-
+  
       // Check if the current user is the creator
       if (userId && String(data.createdBy) === String(userId)) {
         setIsCreator(true);
@@ -63,25 +66,47 @@ const GameLobby = () => {
           "\ndata.createdBy:", data.createdBy
         );
       }
-
+  
       // Check if the user has joined the tournament
       if (data.playerIds.includes(lichessId)) {
         setHasJoined(true);
         console.log(`🎮 User has already joined the tournament.`);
       }
-
+  
       // Enrich players with their ratings
       const enrichedPlayers = await Promise.all(
         data.playerIds.map(async (id: string) => {
           try {
+            // שימוש במטמון פנימי אם יש
+            if (playersCacheRef.current[id]) {
+              return playersCacheRef.current[id];
+            }
+            
             const res = await fetch(`https://lichess.org/api/user/${id}`);
+            if (!res.ok) {
+              // אם יש rate limit, החזר מידע ברירת מחדל
+              if (res.status === 429) {
+                return {
+                  id,
+                  username: id,
+                  rating: 1500,
+                  avatar: "/placeholder.svg",
+                };
+              }
+              throw new Error(`Lichess API returned ${res.status}`);
+            }
+            
             const userData = await res.json();
-            return {
+            const player = {
               id,
               username: userData.username,
               rating: userData.perfs?.blitz?.rating ?? 1500,
               avatar: "/placeholder.svg",
             };
+            
+            // שמירה במטמון פנימי
+            playersCacheRef.current[id] = player;
+            return player;
           } catch {
             return {
               id,
@@ -92,34 +117,52 @@ const GameLobby = () => {
           }
         })
       );
-
+  
       setPlayers(enrichedPlayers.filter((p): p is Player => p !== null));
-
+  
       // Auto-start tournament if it is full and hasn't started yet
-      const tournamentStarted = data.rounds?.length > 0;
+      const tournamentStarted = data.bracket?.length > 0;
       console.log("🧠 Start check:",
         "\n- playerIds:", data.playerIds,
         "\n- maxPlayers:", data.maxPlayers,
         "\n- tournamentStarted:", tournamentStarted,
         "\n- isCreator:", isCreator
       );
+      
       if (
         data.playerIds.length === data.maxPlayers &&
         !tournamentStarted &&
-        isCreator
+        userId &&
+        String(data.createdBy) === String(userId)
       ) {
         console.log("🧠 Auto-starting tournament...");
-
-        await fetch(`${backendUrl}/api/lichess/tournaments/${tournamentId}/start`, { method: "POST" });
-
+  
+        try {
+          const response = await fetch(`${backendUrl}/api/lichess/tournaments/${tournamentId}/start`, { 
+            method: "POST" 
+          });
+          
+          if (!response.ok) {
+            console.error(`❌ Failed to start tournament: ${response.status}`);
+            
+            // אם זה rate limit, נסה שוב מאוחר יותר
+            if (response.status === 429) {
+              console.log("⏱️ Rate limited. Will retry on next poll.");
+            }
+          } else {
+            console.log("✅ Tournament started successfully!");
+          }
+        } catch (err) {
+          console.error("❌ Error starting tournament:", err);
+        }
       }
-
+  
       // If tournament is started, check if the player has a match
-      const latestRound = data.rounds?.[data.rounds.length - 1];
+      const latestRound = data.bracket?.[data.bracket.length - 1];
       const match = latestRound?.matches?.find(
         (m: Match) => m.player1 === lichessId || m.player2 === lichessId
       );
-
+  
       if (match?.lichessUrl && !isRedirecting) {
         console.log("🚀 Redirecting to ChessBoard:", match.lichessUrl);
         setIsRedirecting(true);
@@ -129,11 +172,12 @@ const GameLobby = () => {
       console.error("❌ Error fetching tournament:", err);
     }
   };
-
+  
   useEffect(() => {
+    fetchTournament(); // ביצוע ראשוני
     const interval = setInterval(fetchTournament, 5000); // Poll every 5 seconds
     return () => clearInterval(interval); // Cleanup interval on component unmount
-  }, [isCreator, lichessId, userId]);
+  }, [lichessId, userId]);
 
   const handleJoin = async () => {
     console.log("🔄 User attempting to join the tournament...");
@@ -153,7 +197,7 @@ const GameLobby = () => {
       console.error("❌ Failed to join lobby:", err);
     }
   };
-
+  
   const currentPlayers = players.length;
 
   return (
