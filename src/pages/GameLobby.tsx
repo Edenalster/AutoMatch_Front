@@ -54,6 +54,11 @@ const GameLobby = () => {
       setMaxPlayers(data.maxPlayers);
       setTournamentName(data.tournamentName || "Tournament");
       localStorage.setItem("tournamentName1", data.tournamentName);
+      
+      // חשוב: שמירת ה-ID של הטורניר בלוקל סטורג' כדי שכל שחקן יוכל להגיע לעמוד ה-bracket
+      localStorage.setItem("tournamentId", data._id);
+      console.log("✅ Saved tournament ID in localStorage:", data._id);
+      
       console.log("name1:", data.tournamentName);
   
       // Check if the current user is the creator
@@ -198,6 +203,11 @@ const GameLobby = () => {
     }
   };
   
+  // הוספת כפתור לעבור ישירות לעמוד ה-bracket
+  const handleGoToBracket = () => {
+    navigate(`/bracket/${tournamentId}`);
+  };
+  
   const currentPlayers = players.length;
 
   return (
@@ -234,16 +244,26 @@ const GameLobby = () => {
                   </span>
                 </p>
 
-                {!hasJoined && lichessId && (
-                  <div className="text-center mt-4">
+                <div className="flex justify-center gap-4 mt-4">
+                  {!hasJoined && lichessId && (
                     <button
                       onClick={handleJoin}
                       className="px-6 py-2 rounded bg-chess-gold text-black hover:bg-yellow-500 font-semibold"
                     >
                       Join Lobby
                     </button>
-                  </div>
-                )}
+                  )}
+                  
+                  {/* כפתור חדש למעבר לדף ה-bracket */}
+                  {hasJoined && (
+                    <button
+                      onClick={handleGoToBracket}
+                      className="px-6 py-2 rounded bg-chess-secondary text-white hover:bg-blue-700 font-semibold"
+                    >
+                      View Tournament Status
+                    </button>
+                  )}
+                </div>
 
                 <h2 className="text-xl font-semibold mt-6">Participants</h2>
                 <div className="grid gap-4">
