@@ -12,6 +12,9 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import type { JSX } from "react";
 import ChessLoader from "../components/Loader";
+import { FaRobot } from "react-icons/fa";
+
+
 
 const ProfilePage = () => {
   interface User {
@@ -47,6 +50,29 @@ const ProfilePage = () => {
 
   const [user, setUser] = useState<User | null>(null);
   const lichessId = localStorage.getItem("lichessId");
+  const [analysis, setAnalysis] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+
+
+
+
+  const fetchAnalysis = async () => {
+    if (!lichessId) return;
+    setAnalyzing(true);
+    setAnalysis(null);
+    try {
+      const res = await fetch(
+        `https://automatch.cs.colman.ac.il/api/lichess/analyze/${lichessId}`
+      );
+      const data = await res.json();
+      setAnalysis(data.analysis);
+    } catch (error) {
+      console.error("Failed to fetch analysis:", error);
+      setAnalysis("Failed to analyze your games.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -241,6 +267,34 @@ const ProfilePage = () => {
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Analysis Card - הוספת כרטיסיית הניתוח */}
+            <div className="bg-chess-dark/60 backdrop-blur-lg rounded-lg border border-white/10 p-6 shadow-lg">
+              <h2 className="text-xl font-bold text-white mb-4">
+                Playstyle Analysis
+              </h2>
+              
+              <Button 
+  onClick={fetchAnalysis} 
+  disabled={analyzing}
+  className="w-full mb-4 bg-chess-gold hover:bg-yellow-500 text-black font-medium flex items-center justify-center gap-2"
+>
+  <FaRobot className="h-4 w-4" />
+  {analyzing ? "Analyzing..." : "Analyze My Playstyle"}
+</Button>
+              
+              {analyzing && (
+                <div className="flex justify-center my-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-chess-gold"></div>
+                </div>
+              )}
+              
+              {analysis && (
+                <div className="mt-4 p-4 bg-chess-dark/80 rounded-lg border border-chess-gold/30">
+                  <p className="text-white text-sm leading-relaxed">{analysis}</p>
+                </div>
+              )}
             </div>
 
             {/* Balance Card */}

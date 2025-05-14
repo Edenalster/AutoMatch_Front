@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { Button } from "../components/ui/button";
-import { Trophy, User, Clock, AlertCircle, Award, ArrowRightCircle } from "lucide-react";
+import { Trophy, User, Clock, AlertCircle, Award, ArrowRightCircle, BookOpen, Brain } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../components/ui/dialog";
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
@@ -36,6 +37,12 @@ interface Tournament {
   status: "active" | "completed";
 }
 
+interface Analysis {
+  username: string;
+  gameId: string;
+  analysis: string;
+}
+
 export default function BracketTournament() {
   const { id: tournamentId } = useParams();
   const navigate = useNavigate();
@@ -45,6 +52,12 @@ export default function BracketTournament() {
   const [error, setError] = useState<string | null>(null);
   const lichessId = localStorage.getItem("lichessId");
   const [isCreator, setIsCreator] = useState(false);
+  
+  // State for game analysis
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [currentAnalysis, setCurrentAnalysis] = useState<Analysis | null>(null);
+  const [analyzingGame, setAnalyzingGame] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "Tournament Bracket - AutoMatch";
@@ -180,13 +193,50 @@ export default function BracketTournament() {
     return "text-gray-400";
   };
 
-// בדיקה אם המשתמש יכול לשחק במשחק מסוים
-const canUserPlay = (match: Match) => {
-  if (!lichessId) return false;
-  if (match.result !== "pending") return false;
-  if (match.lichessUrl === "#" || match.result.toLowerCase() === "error") return false;
-  return match.player1 === lichessId || match.player2 === lichessId;
-};
+  // בדיקה אם המשתמש יכול לשחק במשחק מסוים
+  const canUserPlay = (match: Match) => {
+    if (!lichessId) return false;
+    if (match.result !== "pending") return false;
+    if (match.lichessUrl === "#" || match.result.toLowerCase() === "error") return false;
+    return match.player1 === lichessId || match.player2 === lichessId;
+  };
+
+  // בדיקה אם המשתמש שיחק במשחק זה
+  const didUserPlayInMatch = (match: Match) => {
+    if (!lichessId) return false;
+    return match.player1 === lichessId || match.player2 === lichessId;
+  };
+
+  // נתוח המשחק
+  const analyzeGame = async (match: Match) => {
+    if (!lichessId || !match.lichessUrl) return;
+    
+    // הוצאת מזהה המשחק מה-URL
+    const gameId = match.lichessUrl.split('/').pop()?.split('?')[0];
+    if (!gameId) return;
+    
+    setAnalysisOpen(true);
+    setAnalyzingGame(true);
+    setAnalysisError(null);
+    setCurrentAnalysis(null);
+    
+    try {
+      const response = await fetch(`${backendUrl}/api/lichess/analyze/game/${gameId}/${lichessId}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to analyze game");
+      }
+      
+      const data = await response.json();
+      setCurrentAnalysis(data);
+    } catch (err) {
+      console.error("Failed to analyze game:", err);
+      setAnalysisError(err instanceof Error ? err.message : "Failed to analyze game");
+    } finally {
+      setAnalyzingGame(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -289,6 +339,16 @@ const canUserPlay = (match: Match) => {
                     const player1Rating = playerMap[match.player1]?.rating;
                     const player2Rating = playerMap[match.player2]?.rating;
                     
+                    // בדיקה אם המשחק הסתיים והמשתמש שיחק בו
+                    const isCompletedMatchWhereUserPlayed = (
+                      match.result !== "pending" && 
+                      match.result !== "in_progress" &&
+                      match.result !== "error" &&
+                      match.lichessUrl && 
+                      match.lichessUrl !== "#" &&
+                      didUserPlayInMatch(match)
+                    );
+                    
                     return (
                       <div
                         key={matchIdx}
@@ -369,12 +429,24 @@ const canUserPlay = (match: Match) => {
                               </Button>
                             )}
                             
+                            {/* כפתור לניתוח משחק - מוצג רק אם המשחק הסתיים והמשתמש שיחק בו */}
+                            {isCompletedMatchWhereUserPlayed && (
+                              <Button
+                                onClick={() => analyzeGame(match)}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                              >
+                                <Brain className="mr-2 h-4 w-4" />
+                                Analyze My Game
+                              </Button>
+                            )}
+                            
                             {match.lichessUrl && match.lichessUrl !== "#" && (
                               <Button
                                 onClick={() => window.open(match.lichessUrl, "_blank")}
                                 className="w-full bg-gray-700 hover:bg-gray-600 text-white"
                                 variant="outline"
                               >
+                                <BookOpen className="mr-2 h-4 w-4" />
                                 View on Lichess
                               </Button>
                             )}
@@ -472,6 +544,60 @@ const canUserPlay = (match: Match) => {
           </div>
         </div>
       </div>
+
+      {/* Dialog לניתוח המשחק */}
+      <Dialog open={analysisOpen} onOpenChange={setAnalysisOpen}>
+        <DialogContent className="bg-chess-dark border-gray-700 text-white max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl flex items-center gap-2">
+              <Brain className="text-chess-gold h-6 w-6" />
+              Game Analysis
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              AI-powered analysis of your chess game performance
+            </DialogDescription>
+          </DialogHeader>
+          
+          {analyzingGame && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-chess-gold mb-4"></div>
+              <p className="text-gray-300">Analyzing your game...</p>
+              <p className="text-gray-400 text-sm mt-2">This might take a moment</p>
+            </div>
+          )}
+          
+          {analysisError && (
+            <div className="p-6 text-center">
+              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-red-400 mb-2">Analysis Failed</h3>
+              <p className="text-gray-300 mb-4">{analysisError}</p>
+              <Button onClick={() => setAnalysisOpen(false)} className="bg-gray-700 hover:bg-gray-600">
+                Close
+              </Button>
+            </div>
+          )}
+          
+          {currentAnalysis && !analyzingGame && !analysisError && (
+            <div className="space-y-4">
+              <div className="p-4 bg-chess-dark/60 rounded-lg border border-gray-700">
+                <h3 className="font-bold text-lg mb-1 text-chess-gold">Game Analysis for {currentAnalysis.username}</h3>
+                <div className="text-sm text-gray-400 mb-2">Game ID: {currentAnalysis.gameId}</div>
+                
+                <div className="prose prose-invert max-w-none mt-4">
+                  {/* Whitespace-pre-wrap ensures that line breaks in the analysis text are respected */}
+                  <div className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: currentAnalysis.analysis.replace(/\n/g, '<br />') }} />
+                </div>
+              </div>
+              
+              <div className="flex justify-end pt-2">
+                <Button className="bg-chess-gold hover:bg-yellow-500 text-black" onClick={() => setAnalysisOpen(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
