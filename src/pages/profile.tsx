@@ -40,12 +40,13 @@ const ProfilePage = () => {
 
   interface Game {
     perf: string;
-    winner?: string;
-    createdAt: number;
+    winner: string | null;
     players: {
-      white: { user?: { id: string } };
-      black: { user?: { id: string } };
+      white: { user?: { id: string }; rating: number };
+      black: { user?: { id: string }; rating: number };
     };
+    createdAt: number;
+    id: string; // ← This is the Lichess game ID
   }
 
   const [user, setUser] = useState<User | null>(null);
@@ -102,52 +103,79 @@ const ProfilePage = () => {
           .map((line) => JSON.parse(line));
 
         // Process recent matches
-        const recentMatches = games.map((game: Game) => {
-          const userIsWhite =
-            game.players.white.user?.id?.toLowerCase() ===
-            data.username.toLowerCase();
-          const userIsBlack =
-            game.players.black.user?.id?.toLowerCase() ===
-            data.username.toLowerCase();
-
-          const userDraw = !game.winner;
-          const userWon =
-            (userIsWhite && game.winner === "white") ||
-            (userIsBlack && game.winner === "black");
-
-          return {
-            type: `${game.perf.toUpperCase()} Game`,
-            position: userDraw ? "Draw" : userWon ? "1st" : "Lost",
-            amount: userDraw ? 0 : userWon ? 50 : -20,
-          };
-        });
+        const recentMatches = await Promise.all(
+          games.map(async (game: Game) => {
+            const userIsWhite =
+              game.players.white.user?.id?.toLowerCase() ===
+              data.username.toLowerCase();
+            const userIsBlack =
+              game.players.black.user?.id?.toLowerCase() ===
+              data.username.toLowerCase();
+            const userDraw = !game.winner;
+            const userWon =
+              (userIsWhite && game.winner === "white") ||
+              (userIsBlack && game.winner === "black");
+        
+            let tournamentName = `${game.perf.toUpperCase()} Game`; // default fallback
+        
+            try {
+              const res = await fetch(
+                `https://automatch.cs.colman.ac.il/api/lichess/tournaments/by-lichess-url/${game.id}`
+              );
+              const json = await res.json();
+              tournamentName = json.tournamentName || tournamentName;
+            } catch (err) {
+              console.warn("⚠️ Could not fetch tournament name for recent match");
+            }
+        
+            return {
+              type: tournamentName, // 👈 updated here
+              position: userDraw ? "Draw" : userWon ? "1st" : "Lost",
+              amount: userDraw ? 0 : userWon ? 50 : -20,
+            };
+          })
+        );
 
         // Process tournament results
-        const tournamentResults = games.map((game: Game) => {
-          const userIsWhite =
-            game.players.white.user?.id?.toLowerCase() ===
-            data.username.toLowerCase();
-          const userIsBlack =
-            game.players.black.user?.id?.toLowerCase() ===
-            data.username.toLowerCase();
-          const userDraw = !game.winner;
-          const userWon =
-            (userIsWhite && game.winner === "white") ||
-            (userIsBlack && game.winner === "black");
+        const tournamentResults = await Promise.all(
+          games.map(async (game: Game) => {
+            const userIsWhite =
+              game.players.white.user?.id?.toLowerCase() ===
+              data.username.toLowerCase();
+            const userIsBlack =
+              game.players.black.user?.id?.toLowerCase() ===
+              data.username.toLowerCase();
+            const userDraw = !game.winner;
+            const userWon =
+              (userIsWhite && game.winner === "white") ||
+              (userIsBlack && game.winner === "black");
 
-          const date = new Date(game.createdAt).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          });
+            const date = new Date(game.createdAt).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            });
 
-          return {
-            date,
-            tournament: "Online Game",
-            type: game.perf.charAt(0).toUpperCase() + game.perf.slice(1),
-            result: userDraw ? 0 : userWon ? 50 : -20,
-          };
-        });
+            let tournamentName = "Online Game";
+            try {
+              const res = await fetch(
+                `https://automatch.cs.colman.ac.il/api/lichess/tournaments/by-lichess-url/${game.id}`
+              );
+              const json = await res.json();
+              tournamentName = json.tournamentName || "Online Game";
+            } catch {
+              console.warn("❌ Could not fetch tournament name for", game.id);
+            }
+            console.log("Tournament name:", tournamentName);
+
+            return {
+              date,
+              tournament: tournamentName,
+              type: game.perf.charAt(0).toUpperCase() + game.perf.slice(1),
+              result: userDraw ? 0 : userWon ? 50 : -20,
+            };
+          })
+        );
 
         setUser({
           name: data.username,

@@ -43,6 +43,15 @@ interface Analysis {
   analysis: string;
 }
 
+interface CheatingResult {
+  username: string;
+  gameId: string;
+  suspiciousPlay: boolean;
+  confidence: number;
+  analysis: string;
+  engineSimilarity: string;
+}
+
 export default function BracketTournament() {
   const { id: tournamentId } = useParams();
   const navigate = useNavigate();
@@ -58,10 +67,70 @@ export default function BracketTournament() {
   const [currentAnalysis, setCurrentAnalysis] = useState<Analysis | null>(null);
   const [analyzingGame, setAnalyzingGame] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  
+  // State for cheating detection
+  const [cheatingCheck, setCheatingCheck] = useState<{
+    isChecking: boolean;
+    showDialog: boolean;
+    result: CheatingResult | null;
+  }>({
+    isChecking: false,
+    showDialog: false,
+    result: null
+  });
 
   useEffect(() => {
     document.title = "Tournament Bracket - AutoMatch";
   }, []);
+
+  // פונקציה לבדיקת רמאות במשחק
+  
+  // const checkCheating = async (match: Match) => {
+  //   if (!lichessId || !match.lichessUrl) return;
+    
+  //   // הוצאת מזהה המשחק מה-URL
+  //   const gameId = match.lichessUrl.split('/').pop()?.split('?')[0];
+  //   if (!gameId) return;
+    
+  //   console.log(`🕵️ Checking for cheating in game ${gameId} for player ${lichessId}`);
+  //   setCheatingCheck(prev => ({ ...prev, isChecking: true }));
+    
+  //   try {
+  //     const response = await fetch(`${backendUrl}/api/lichess/analyze/cheating/${gameId}/${lichessId}`);
+      
+  //     if (!response.ok) {
+  //       const errorData = await response.json();
+  //       throw new Error(errorData.error || "Failed to analyze game for cheating");
+  //     }
+      
+  //     const data = await response.json();
+  //     console.log("Cheating detection result:", data);
+      
+  //     // אם נמצאה רמאות פוטנציאלית, הצג התראה
+  //     if (data.suspiciousPlay === true) {
+  //       setCheatingCheck({
+  //         isChecking: false,
+  //         showDialog: true,
+  //         result: data
+  //       });
+  //     }
+      
+  //     // בכל מקרה, נוסיף את המשחק לרשימת המשחקים שנבדקו
+  //     const checkedGamesKey = `cheating-checks-${lichessId}`;
+  //     const checkedGamesString = localStorage.getItem(checkedGamesKey) || '[]';
+  //     const checkedGames = JSON.parse(checkedGamesString);
+      
+  //     if (!checkedGames.includes(gameId)) {
+  //       checkedGames.push(gameId);
+  //       localStorage.setItem(checkedGamesKey, JSON.stringify(checkedGames));
+  //     }
+      
+  //   } catch (err) {
+  //     console.error("Failed to check for cheating:", err);
+  //   } finally {
+  //     setCheatingCheck(prev => ({ ...prev, isChecking: false }));
+  //   }
+  // };
 
   useEffect(() => {
     const fetchTournament = async () => {
@@ -133,6 +202,40 @@ export default function BracketTournament() {
     const interval = setInterval(fetchTournament, 15000);
     return () => clearInterval(interval);
   }, [tournamentId]);
+
+  // בדיקה אוטומטית של רמאות בטעינת המסך - עם localStorage לזכירת הבדיקות הקודמות
+  useEffect(() => {
+    if (tournament && lichessId) {
+      // מקבל את רשימת המשחקים שכבר נבדקו מה-localStorage
+      const checkedGamesKey = `cheating-checks-${lichessId}`;
+      const checkedGamesString = localStorage.getItem(checkedGamesKey) || '[]';
+      const checkedGames = JSON.parse(checkedGamesString);
+      
+      console.log(`📋 Already checked games for ${lichessId}:`, checkedGames);
+      
+      // עובר על כל הסיבובים והמשחקים
+      tournament.bracket.forEach(round => {
+        round.matches.forEach(match => {
+          // מוציא את מזהה המשחק מה-URL
+          if (match.lichessUrl) {
+            const gameId = match.lichessUrl.split('/').pop()?.split('?')[0];
+            
+            // בדוק רק משחקים שהסתיימו, שהמשתמש שיחק בהם, ושטרם נבדקו
+            if (gameId && 
+                match.result !== "pending" && 
+                match.result !== "in_progress" && 
+                match.lichessUrl !== "#" &&
+                (match.player1 === lichessId || match.player2 === lichessId) &&
+                !checkedGames.includes(gameId)) {
+              
+              console.log(`🔍 Found unchecked game: ${gameId}`);
+              // checkCheating(match);
+            }
+          }
+        });
+      });
+    }
+  }, [tournament, lichessId]);
 
   const goToGame = (match: Match) => {
     // בדיקה למשתמש אם הוא שחקן 1 או 2 ולקחת את ה-URL המתאים
@@ -598,6 +701,47 @@ export default function BracketTournament() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Dialog להתראת רמאות */}
+      <Dialog open={cheatingCheck.showDialog} onOpenChange={(open) => setCheatingCheck(prev => ({ ...prev, showDialog: open }))}>
+        <DialogContent className="bg-chess-dark border-gray-700 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-2xl flex items-center gap-2 text-red-500">
+              <AlertCircle className="h-6 w-6" />
+              Fair Play Violation Detected
+            </DialogTitle>
+            <DialogDescription className="text-gray-300">
+              Our automated system has detected suspicious play patterns
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="p-4 rounded-lg bg-red-900/20 border border-red-800 mb-4">
+            <p className="text-white font-medium mb-2">
+              Our anti-cheating system has detected play patterns consistent with computer assistance in your recent game.
+            </p>
+            <p className="text-gray-300 mb-2">
+              Confidence level: {cheatingCheck.result?.confidence}%
+            </p>
+            <p className="text-gray-300">
+              {cheatingCheck.result?.analysis}
+            </p>
+          </div>
+          
+          <div className="p-4 rounded-lg bg-gray-800 mb-4">
+            <h3 className="font-bold text-yellow-400 mb-2">Warning</h3>
+            <p className="text-gray-200">
+              Using chess engines or any external assistance during games is strictly prohibited. 
+              Continued fair play violations may result in account restrictions or tournament disqualification.
+            </p>
+          </div>
+          
+          <div className="flex justify-end gap-3 pt-2">
+            <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={() => setCheatingCheck(prev => ({ ...prev, showDialog: false }))}>
+              I Understand
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-};
+}
