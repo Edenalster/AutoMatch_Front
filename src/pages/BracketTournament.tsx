@@ -35,8 +35,10 @@ interface Tournament {
   advancingPlayers: string[];
   winner: string | null;
   status: "active" | "completed";
+  // הוספת השדות החסרים:
+  tournamentPrize?: number;  // סכום הפרס (אופציונלי עם ? כי ייתכן שלא יהיה בכל טורניר)
+  entryFee?: number;         // דמי כניסה (אופציונלי)
 }
-
 interface Analysis {
   username: string;
   gameId: string;
@@ -395,37 +397,51 @@ export default function BracketTournament() {
       <Navbar showItems={true} />
       
       <div className="container mx-auto px-4 py-8 relative z-10">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white">{tournament.tournamentName}</h1>
-          <p className="text-muted-foreground text-gray-300 mt-2">
-            {tournament.status === "completed" 
-              ? "Tournament Completed" 
-              : `Round ${tournament.currentStage + 1} of ${Math.ceil(Math.log2(tournament.maxPlayers))}`
-            }
-          </p>
-          
-          {tournament.status === "completed" && tournament.winner && (
-            <div className="mt-6 inline-block bg-chess-gold/20 rounded-lg p-4">
-              <Trophy className="h-10 w-10 text-chess-gold mx-auto mb-2" />
-              <p className="text-xl font-semibold">Tournament Winner</p>
-              <p className="text-2xl font-bold text-chess-gold">
-                {playerMap[tournament.winner]?.username || tournament.winner}
-              </p>
-            </div>
-          )}
-          
-          {isCreator && tournament.status === "active" && (
-            <div className="mt-4">
-              <Button 
-                onClick={forceAdvanceTournament}
-                className="bg-chess-secondary hover:bg-blue-700 text-white"
-              >
-                <ArrowRightCircle className="mr-2 h-4 w-4" />
-                Force Advance to Next Round
-              </Button>
-            </div>
-          )}
-        </div>
+      <div className="text-center mb-8">
+  <h1 className="text-4xl font-bold text-white">{tournament.tournamentName}</h1>
+  <p className="text-muted-foreground text-gray-300 mt-2">
+    {tournament.status === "completed" 
+      ? "Tournament Completed" 
+      : `Round ${tournament.currentStage + 1} of ${Math.ceil(Math.log2(tournament.maxPlayers))}`
+    }
+  </p>
+  
+  {/* תצוגת סכום הפרס */}
+  <div className="mt-3 inline-block bg-chess-dark/80 border border-chess-gold/30 rounded-lg px-6 py-3">
+    <div className="flex items-center justify-center gap-2">
+      <Award className="h-5 w-5 text-chess-gold" />
+      <span className="text-lg font-semibold text-white">Prize Pool:</span>
+      <span className="text-2xl font-bold text-chess-gold">
+        ${tournament.tournamentPrize}
+      </span>
+    </div>
+  </div>
+</div>
+
+{/* תצוגת המנצח - בבלוק נפרד */}
+<div className="text-center mb-8">
+  {tournament.status === "completed" && tournament.winner && (
+    <div className="mt-2 inline-block bg-chess-gold/20 rounded-lg p-4">
+      <Trophy className="h-10 w-10 text-chess-gold mx-auto mb-2" />
+      <p className="text-xl font-semibold">Tournament Winner</p>
+      <p className="text-2xl font-bold text-chess-gold">
+        {playerMap[tournament.winner]?.username || tournament.winner}
+      </p>
+    </div>
+  )}
+  
+  {isCreator && tournament.status === "active" && (
+    <div className="mt-4">
+      <Button 
+        onClick={forceAdvanceTournament}
+        className="bg-chess-secondary hover:bg-blue-700 text-white"
+      >
+        <ArrowRightCircle className="mr-2 h-4 w-4" />
+        Force Advance to Next Round
+      </Button>
+    </div>
+  )}
+</div>
         
         <div className="overflow-x-auto pb-8">
           <div className="bracket-container min-w-max flex justify-start space-x-8 p-4">

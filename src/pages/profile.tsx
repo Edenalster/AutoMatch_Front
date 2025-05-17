@@ -14,7 +14,7 @@ import type { JSX } from "react";
 import ChessLoader from "../components/Loader";
 import { FaRobot } from "react-icons/fa";
 
-
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 const ProfilePage = () => {
   interface User {
@@ -38,24 +38,10 @@ const ProfilePage = () => {
     }[];
   }
 
-  interface Game {
-    perf: string;
-    winner: string | null;
-    players: {
-      white: { user?: { id: string }; rating: number };
-      black: { user?: { id: string }; rating: number };
-    };
-    createdAt: number;
-    id: string; // ← This is the Lichess game ID
-  }
-
   const [user, setUser] = useState<User | null>(null);
   const lichessId = localStorage.getItem("lichessId");
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
-
-
-
 
   const fetchAnalysis = async () => {
     if (!lichessId) return;
@@ -82,13 +68,6 @@ const ProfilePage = () => {
         const res = await fetch(`https://lichess.org/api/user/${lichessId}`);
         const data = await res.json();
 
-        // Log to check the response from Lichess API
-        console.log("Lichess API Data:", data);
-
-        // Check if the 'perfs' object contains the expected data
-        console.log("Lichess perfs data:", data.perfs);
-
-        // Fetching recent games
         const gamesRes = await fetch(
           `https://lichess.org/api/games/user/${lichessId}?max=5`,
           {
@@ -99,44 +78,50 @@ const ProfilePage = () => {
         const games = gamesText
           .trim()
           .split("\n")
-          .filter((line) => line.trim().length > 0)
+          .filter((line) => line.trim().length > 0) // ✅ ignore blank lines
           .map((line) => JSON.parse(line));
 
-        // Process recent matches
-        const recentMatches = await Promise.all(
-          games.map(async (game: Game) => {
-            const userIsWhite =
-              game.players.white.user?.id?.toLowerCase() ===
-              data.username.toLowerCase();
-            const userIsBlack =
-              game.players.black.user?.id?.toLowerCase() ===
-              data.username.toLowerCase();
-            const userDraw = !game.winner;
-            const userWon =
-              (userIsWhite && game.winner === "white") ||
-              (userIsBlack && game.winner === "black");
-        
-            let tournamentName = `${game.perf.toUpperCase()} Game`; // default fallback
-        
-            try {
-              const res = await fetch(
-                `https://automatch.cs.colman.ac.il/api/lichess/tournaments/by-lichess-url/${game.id}`
-              );
-              const json = await res.json();
-              tournamentName = json.tournamentName || tournamentName;
-            } catch (err) {
-              console.warn("⚠️ Could not fetch tournament name for recent match");
-            }
-        
-            return {
-              type: tournamentName, // 👈 updated here
-              position: userDraw ? "Draw" : userWon ? "1st" : "Lost",
-              amount: userDraw ? 0 : userWon ? 50 : -20,
-            };
-          })
-        );
+          
+          let balance = 0;
+          try {
+            const balanceRes = await fetch(`${backendUrl}/auth/users/${lichessId}/balance`);
+            const balanceData = await balanceRes.json();
+            balance = balanceData.balance ?? 0;
+          } catch (e) {
+            console.warn("⚠️ Failed to fetch user balance:", e);
+          }
+          
+        interface Game {
+          perf: string;
+          winner: string | null;
+          players: {
+            white: { user?: { id: string }; rating: number };
+            black: { user?: { id: string }; rating: number };
+          };
+          createdAt: number;
+          id: string; // ← This is the Lichess game ID
+        }
 
-        // Process tournament results
+        const recentMatches = games.map((game: Game) => {
+          const userIsWhite =
+            game.players.white.user?.id?.toLowerCase() ===
+            data.username.toLowerCase();
+          const userIsBlack =
+            game.players.black.user?.id?.toLowerCase() ===
+            data.username.toLowerCase();
+
+          const userDraw = !game.winner;
+          const userWon =
+            (userIsWhite && game.winner === "white") ||
+            (userIsBlack && game.winner === "black");
+
+          return {
+            type: `${game.perf.toUpperCase()} Game`,
+            position: userDraw ? "Draw" : userWon ? "1st" : "Lost",
+            amount: userDraw ? 0 : userWon ? 50 : -20,
+          };
+        });
+
         const tournamentResults = await Promise.all(
           games.map(async (game: Game) => {
             const userIsWhite =
@@ -159,7 +144,7 @@ const ProfilePage = () => {
             let tournamentName = "Online Game";
             try {
               const res = await fetch(
-                `https://automatch.cs.colman.ac.il/api/lichess/tournaments/by-lichess-url/${game.id}`
+                `${backendUrl}/api/lichess/tournaments/by-lichess-url/${game.id}`
               );
               const json = await res.json();
               tournamentName = json.tournamentName || "Online Game";
@@ -200,10 +185,11 @@ const ProfilePage = () => {
               games: data.perfs.bullet?.games ?? 0,
             },
           },
-          balance: 120,
+          balance, // ✅ שימוש בערך האמיתי מה-DB
           recentMatches,
           tournamentResults,
         });
+        
       } catch (error) {
         console.error("Failed to fetch Lichess data:", error);
       }
@@ -297,20 +283,20 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {/* Analysis Card - הוספת כרטיסיית הניתוח */}
+            {/* Analysis Card - New Feature */}
             <div className="bg-chess-dark/60 backdrop-blur-lg rounded-lg border border-white/10 p-6 shadow-lg">
               <h2 className="text-xl font-bold text-white mb-4">
-                Playstyle Analysis
+                Games Analysis
               </h2>
               
               <Button 
-  onClick={fetchAnalysis} 
-  disabled={analyzing}
-  className="w-full mb-4 bg-chess-gold hover:bg-yellow-500 text-black font-medium flex items-center justify-center gap-2"
->
-  <FaRobot className="h-4 w-4" />
-  {analyzing ? "Analyzing..." : "Analyze My Playstyle"}
-</Button>
+                onClick={fetchAnalysis} 
+                disabled={analyzing}
+                className="w-full mb-4 bg-chess-gold hover:bg-yellow-500 text-black font-medium flex items-center justify-center gap-2"
+              >
+                <FaRobot className="h-4 w-4" />
+                {analyzing ? "Analyzing..." : "Analyze My Games"}
+              </Button>
               
               {analyzing && (
                 <div className="flex justify-center my-4">
