@@ -100,10 +100,14 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
  */
 const FeatureSection: React.FC = () => {
   return (
+   
     <section id="features" className="section-padding relative overflow-hidden">
-      {/* Background gradient with a chess board pattern overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90 z-0">
-        <div className="chess-board-bg opacity-10"></div>
+          {/* Background wrapper - this needs to be fixed position to cover the entire screen */}
+          <div className="fixed inset-0 w-full h-full z-0">
+        {/* Gradient background */}
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90"></div>
+        {/* Chess board pattern overlay */}
+        <div className="absolute inset-0 w-full h-full chess-board-bg opacity-15"></div>
       </div>
 
       {/* Decorative blurred elements for dynamic visuals */}

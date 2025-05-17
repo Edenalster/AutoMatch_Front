@@ -48,6 +48,11 @@ const ChessBoard = () => {
   const openGameInPopup = () => {
     if (gameUrl) {
       window.open(gameUrl, "Game", "width=800,height=600");
+  
+      // Delay navigation to avoid browser blocking it
+      setTimeout(() => {
+        handleGoToAfterGame();
+      }, 300); // 300ms delay to allow popup to open cleanly
     }
   };
 

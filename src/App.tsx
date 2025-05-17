@@ -20,6 +20,7 @@ import GameLobby from "./pages/GameLobby";
 import ChessBoard from "./pages/ChessBoard";
 import BracketTournament from "./pages/BracketTournament";
 import AfterGame from "./pages/AfterGame";
+import SearchResults from "./pages/SearchResults"
 
 // A simple auth check for demo purposes
 const isLoggedIn = () => {
@@ -49,6 +50,7 @@ const App: React.FC = () => {
         <Route path="/anti-cheat" element={<AntiCheat />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/find-match" element={<FindMatch />} />
+        <Route path="/search-results" element={<SearchResults />} />
         <Route path="/create-tournament" element={<CreateTournament />} />
         <Route path="/lobby/:id" element={<GameLobby />} />
         <Route path="/chess-board" element={<ChessBoard />} />

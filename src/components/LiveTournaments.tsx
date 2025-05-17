@@ -1,64 +1,70 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import TournamentCard from "./TournamentCard";
 import { Trophy, ChevronRight, Filter } from "lucide-react";
+import { Link } from "react-router-dom"; 
 
-/**
- * Props for the TournamentFilter component.
- */
-interface TournamentFilterProps {
-  /** Title to be displayed on the filter button */
-  title: string;
-  /** Flag indicating whether this filter is active */
-  active: boolean;
-  /** Flag indicating whether this filter is active */
-  onClick: () => void;
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
+interface Tournament {
+  _id: string;
+  tournamentName: string;
+  rankRange: {
+    label: string;
+    min: number;
+    max: number;
+  };
+  entryFee: number;
+  playerIds: string[];
+  maxPlayers: number;
 }
 
-/**
- * TournamentFilter component renders an individual filter button.
- *
- * @param props - The properties for the filter including title, active state, and onClick handler.
- * @returns A Button component styled based on whether it is active.
- */
-const TournamentFilter: React.FC<TournamentFilterProps> = ({
-  title,
-  active,
-  onClick,
-}) => {
-  return (
-    <Button
-      variant={active ? "default" : "outline"}
-      size="sm"
-      className={`rounded-full ${
-        active
-          ? "bg-chess-gold text-chess-dark hover:bg-chess-gold/90"
-          : "bg-white/5 border-white/20 text-white hover:bg-white/10"
-      }`}
-      onClick={onClick}
-    >
-      {title}
-    </Button>
-  );
-};
+const TournamentFilter: React.FC<{
+  title: string;
+  active: boolean;
+  onClick: () => void;
+}> = ({ title, active, onClick }) => (
+  <Button
+    variant={active ? "default" : "outline"}
+    size="sm"
+    className={`rounded-full ${
+      active
+        ? "bg-chess-gold text-chess-dark hover:bg-chess-gold/90"
+        : "bg-white/5 border-white/20 text-white hover:bg-white/10"
+    }`}
+    onClick={onClick}
+  >
+    {title}
+  </Button>
+);
 
-/**
- * LiveTournaments component renders the live tournaments section.
- *
- * @remarks
- * The component includes a header with prize pool information, filter buttons,
- * a grid of TournamentCard components for individual tournaments, and a button to view all tournaments.
- *
- * @returns {JSX.Element} The rendered live tournaments section.
- */
 const LiveTournaments: React.FC = () => {
-  // State for tracking the currently active filter.
   const [activeFilter, setActiveFilter] = useState("all");
+  const [liveTournaments, setLiveTournaments] = useState<Tournament[]>([]);
+
+  useEffect(() => {
+    const fetchLiveTournaments = async () => {
+      try {
+        const res = await fetch(`${backendUrl}/api/lichess/tournaments/search?entryFee=0&rankRange=any`);
+        const data = await res.json();
+        setLiveTournaments(data.tournaments || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch live tournaments", err);
+      }
+    };
+
+    fetchLiveTournaments();
+  }, []);
+
+  const filteredTournaments = liveTournaments.filter((t) => {
+    if (activeFilter === "all") return true;
+    return t.rankRange?.label?.toLowerCase() === activeFilter;
+  });
 
   return (
     <section id="tournaments" className="section-padding relative">
-      {/* Background gradient overlay */}
-      <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-radial from-chess-gold/5 to-transparent"></div>
+     {/* Background gradient overlay */}
+     <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-radial from-chess-gold/5 to-transparent"></div>
       {/* Background gradient with a chess board pattern overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90 z-0"></div>
       <div className="absolute inset-0 chess-board-bg opacity-15 z-0"></div>
@@ -90,29 +96,15 @@ const LiveTournaments: React.FC = () => {
             </p>
           </div>
 
-          {/* Filter buttons */}
           <div className="flex flex-wrap gap-2">
-            <TournamentFilter
-              title="All"
-              active={activeFilter === "all"}
-              onClick={() => setActiveFilter("all")}
-            />
-            <TournamentFilter
-              title="Rapid"
-              active={activeFilter === "rapid"}
-              onClick={() => setActiveFilter("rapid")}
-            />
-            <TournamentFilter
-              title="Blitz"
-              active={activeFilter === "blitz"}
-              onClick={() => setActiveFilter("blitz")}
-            />
-            <TournamentFilter
-              title="Classic"
-              active={activeFilter === "classic"}
-              onClick={() => setActiveFilter("classic")}
-            />
-            {/* Extra filter button with icon */}
+            {["all", "rapid", "blitz", "classic"].map((type) => (
+              <TournamentFilter
+                key={type}
+                title={type.charAt(0).toUpperCase() + type.slice(1)}
+                active={activeFilter === type}
+                onClick={() => setActiveFilter(type)}
+              />
+            ))}
             <Button
               size="sm"
               variant="outline"
@@ -124,52 +116,48 @@ const LiveTournaments: React.FC = () => {
           </div>
         </div>
 
-        {/* Grid of tournament cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <TournamentCard
-            title="Weekend Blitz Championship"
-            type="Blitz • 3+2"
-            avgRating={1500}
-            prizePool={400}
-            players={24}
-            maxPlayers={32}
-            startTime="2h 15m"
-            featured={true}
-          />
+        {/* Tournaments */}
+        {filteredTournaments.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredTournaments.map((tournament) => (
+              <TournamentCard
+                key={tournament._id}
+                title={tournament.tournamentName}
+                type={tournament.rankRange?.label || "Ranked"}
+                avgRating={
+                  tournament.rankRange
+                    ? (tournament.rankRange.min + tournament.rankRange.max) / 2
+                    : 1500
+                }
+                prizePool={tournament.entryFee * tournament.maxPlayers}
+                players={tournament.playerIds.length}
+                maxPlayers={tournament.maxPlayers}
+                startTime="Ongoing"
+                featured={false}
+                onJoin={() => console.log("Join", tournament._id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-white/70 text-center mt-8">
+            No live tournaments available at the moment.
+          </p>
+        )}
 
-          <TournamentCard
-            title="Grandmaster Challenge"
-            type="Classic • 15+10"
-            avgRating={2189}
-            prizePool={1200}
-            players={12}
-            maxPlayers={16}
-            startTime="4h 30m"
-          />
-
-          <TournamentCard
-            title="Rapid Thursday"
-            type="Rapid • 10+5"
-            avgRating={1750}
-            prizePool={300}
-            players={18}
-            maxPlayers={24}
-            startTime="1h 45m"
-          />
-        </div>
-
-        {/* Button to view all tournaments */}
         <div className="flex justify-center mt-10">
-          <Button
-            variant="outline"
-            className="group bg-white/5 border-white/20 text-white hover:bg-white/10"
-          >
-            <span>View All Tournaments</span>
-            <ChevronRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </Button>
+        <Link to="/search-results?entryFee=0&rankRange=any">
+  <Button
+    variant="outline"
+    className="group bg-white/5 border-white/20 text-white hover:bg-white/10"
+  >
+    <span>View All Tournaments</span>
+    <ChevronRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+  </Button>
+</Link>
         </div>
       </div>
     </section>
   );
 };
+
 export default LiveTournaments;

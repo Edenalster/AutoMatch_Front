@@ -102,66 +102,95 @@ const ProfilePage = () => {
           id: string; // ← This is the Lichess game ID
         }
 
-        const recentMatches = games.map((game: Game) => {
-          const userIsWhite =
-            game.players.white.user?.id?.toLowerCase() ===
-            data.username.toLowerCase();
-          const userIsBlack =
-            game.players.black.user?.id?.toLowerCase() ===
-            data.username.toLowerCase();
+      const recentMatches = await Promise.all(
+  games.map(async (game: Game) => {
+    const userIsWhite =
+      game.players.white.user?.id?.toLowerCase() === data.username.toLowerCase();
+    const userIsBlack =
+      game.players.black.user?.id?.toLowerCase() === data.username.toLowerCase();
+    const userDraw = !game.winner;
+    const userWon =
+      (userIsWhite && game.winner === "white") ||
+      (userIsBlack && game.winner === "black");
 
-          const userDraw = !game.winner;
-          const userWon =
-            (userIsWhite && game.winner === "white") ||
-            (userIsBlack && game.winner === "black");
+    let entryFee = 10; // default fallback
+    let amount = userDraw ? 0 : userWon ? 2 * entryFee : -entryFee;
 
-          return {
-            type: `${game.perf.toUpperCase()} Game`,
-            position: userDraw ? "Draw" : userWon ? "1st" : "Lost",
-            amount: userDraw ? 0 : userWon ? 50 : -20,
-          };
-        });
+    try {
+      const earningsRes = await fetch(
+        `${backendUrl}/tournaments/earnings/${data.username}/${game.id}`
+      );
+      const earningsJson = await earningsRes.json();
+      if (typeof earningsJson.amount === "number") {
+        amount = earningsJson.amount;
+      }
+    } catch {
+      console.warn("❌ Could not fetch earnings for", game.id);
+    }
+
+    return {
+      type: `${game.perf.toUpperCase()} Game`,
+      position: userDraw ? "Draw" : userWon ? "1st" : "Lost",
+      amount,
+    };
+  })
+);
 
         const tournamentResults = await Promise.all(
           games.map(async (game: Game) => {
             const userIsWhite =
-              game.players.white.user?.id?.toLowerCase() ===
-              data.username.toLowerCase();
+              game.players.white.user?.id?.toLowerCase() === data.username.toLowerCase();
             const userIsBlack =
-              game.players.black.user?.id?.toLowerCase() ===
-              data.username.toLowerCase();
+              game.players.black.user?.id?.toLowerCase() === data.username.toLowerCase();
             const userDraw = !game.winner;
             const userWon =
               (userIsWhite && game.winner === "white") ||
               (userIsBlack && game.winner === "black");
-
+        
             const date = new Date(game.createdAt).toLocaleDateString("en-US", {
               month: "short",
               day: "numeric",
               year: "numeric",
             });
-
+        
             let tournamentName = "Online Game";
+            let entryFee = 10; // fallback default
+        
             try {
-              const res = await fetch(
-                `${backendUrl}/api/lichess/tournaments/by-lichess-url/${game.id}`
-              );
+              const res = await fetch(`${backendUrl}/api/lichess/tournaments/by-lichess-url/${game.id}`);
               const json = await res.json();
-              tournamentName = json.tournamentName || "Online Game";
+              if (json?.tournamentName) tournamentName = json.tournamentName;
+              if (typeof json.entryFee === "number") entryFee = json.entryFee;
             } catch {
-              console.warn("❌ Could not fetch tournament name for", game.id);
+              console.warn("❌ Could not fetch tournament info for", game.id);
             }
-            console.log("Tournament name:", tournamentName);
-
+        
+            let result = 0;
+        
+            try {
+              const earningsRes = await fetch(
+                `${backendUrl}/tournaments/earnings/${data.username}/${game.id}`
+              );
+              const earningsJson = await earningsRes.json();
+        
+              if (typeof earningsJson.amount === "number") {
+                result = earningsJson.amount;
+              } else {
+                result = userDraw ? 0 : userWon ? 2 * entryFee : -entryFee;
+              }
+            } catch (e) {
+              console.warn("❌ Could not fetch earnings for", game.id);
+              result = userDraw ? 0 : userWon ? 2 * entryFee : -entryFee;
+            }
+        
             return {
               date,
               tournament: tournamentName,
               type: game.perf.charAt(0).toUpperCase() + game.perf.slice(1),
-              result: userDraw ? 0 : userWon ? 50 : -20,
+              result,
             };
           })
         );
-
         setUser({
           name: data.username,
           username: data.username,
@@ -207,9 +236,13 @@ const ProfilePage = () => {
 
   return (
     <div className="min-h-screen bg-chess-dark">
-      {/* Background gradient with a chess board pattern overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90 z-0"></div>
-      <div className="absolute inset-0 chess-board-bg opacity-15 z-0"></div>
+         {/* Background wrapper - this needs to be fixed position to cover the entire screen */}
+         <div className="fixed inset-0 w-full h-full z-0">
+        {/* Gradient background */}
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90"></div>
+        {/* Chess board pattern overlay */}
+        <div className="absolute inset-0 w-full h-full chess-board-bg opacity-15"></div>
+      </div>
 
       {/* Decorative blurred elements for dynamic visuals */}
       <div className="absolute top-20 left-10 w-64 h-64 bg-chess-gold/10 rounded-full filter blur-3xl animate-pulse-soft"></div>
@@ -331,68 +364,64 @@ const ProfilePage = () => {
           {/* Right Column - Match History */}
           <div className="lg:col-span-2">
             <div className="bg-chess-dark/60 backdrop-blur-lg rounded-lg border border-white/10 p-6 shadow-lg h-full">
-              <h2 className="text-2xl font-bold text-white mb-6">
-                Match History
-              </h2>
 
-              {/* Recent Results */}
-              <div className="space-y-4 mb-8">
-                {user.recentMatches.map((match, index) => (
-                  <div
-                    key={index}
-                    className="flex justify-between items-center p-4 rounded-lg border border-white/10 bg-chess-dark/40"
-                  >
-                    <div>
-                      <p className="text-white text-lg font-medium">
-                        {match.type}
-                      </p>
-                      <p className="text-white/70">
-                        Position: {match.position}
-                      </p>
-                    </div>
-                    <span
-                      className={`text-xl font-bold ${
-                        match.amount > 0 ? "text-green-500" : "text-red-500"
-                      }`}
-                    >
-                      {match.amount > 0 ? "+" : ""}
-                      {match.amount}$
-                    </span>
-                  </div>
-                ))}
-              </div>
+                          {/* Tournament Results Table */}
+                          <h3 className="text-xl font-bold text-white mb-6">
+  Tournament Results
+</h3>
+<div className="space-y-4 mb-8">
+  {user.tournamentResults.map((match, index) => (
+    <div
+      key={index}
+      className="flex justify-between items-center p-4 rounded-lg border border-white/10 bg-chess-dark/40"
+    >
+      <div>
+        <p className="text-white text-lg font-medium">
+          {match.tournament}
+        </p>
+        <p className="text-white/70">{match.date} • {match.type}</p>
+      </div>
+      <span
+        className={`text-xl font-bold ${
+          match.result > 0 ? "text-green-500" : "text-red-500"
+        }`}
+      >
+        {match.result > 0 ? "+" : ""}
+        {match.result}$
+      </span>
+    </div>
+  ))}
+</div>
+            <h3 className="text-xl font-bold text-white mb-4">
+  Match History
+</h3>
+<Table>
+  <TableHeader>
+    <TableRow>
+      <TableHead>Type</TableHead>
+      <TableHead>Position</TableHead>
+      <TableHead className="text-right">Amount</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    {user.recentMatches.map((match, index) => (
+      <TableRow key={index}>
+        <TableCell>{match.type}</TableCell>
+        <TableCell>{match.position}</TableCell>
+        <TableCell
+          className={`text-right ${
+            match.amount > 0 ? "text-green-500" : "text-red-500"
+          }`}
+        >
+          {match.amount > 0 ? "+" : ""}
+          {match.amount}$
+        </TableCell>
+      </TableRow>
+    ))}
+  </TableBody>
+</Table>
 
-              {/* Tournament Results Table */}
-              <h3 className="text-xl font-bold text-white mb-4">
-                Tournament Results
-              </h3>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Tournament</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Result</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {user.tournamentResults.map((match, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{match.date}</TableCell>
-                      <TableCell>{match.tournament}</TableCell>
-                      <TableCell>{match.type}</TableCell>
-                      <TableCell
-                        className={`text-right ${
-                          match.result > 0 ? "text-green-500" : "text-red-500"
-                        }`}
-                      >
-                        {match.result > 0 ? "+" : ""}
-                        {match.result}$
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+
             </div>
           </div>
         </div>

@@ -15,13 +15,13 @@ import {
 
 const FindMatch = () => {
   const [entryFee, setEntryFee] = useState([0]);
-  const [gameType, setGameType] = useState("any");
+  const [rankRange, setRankRange] = useState("any");
   const [lobbyUrl, setLobbyUrl] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleSearch = () => {
-    console.log("Searching with:", { entryFee: entryFee[0], gameType });
+    navigate(`/search-results?entryFee=${entryFee[0]}&rankRange=${rankRange}`);
   };
 
   const handleJoinLobby = () => {
@@ -50,9 +50,12 @@ const FindMatch = () => {
   return (
     <div className="min-h-screen bg-chess-dark">
       <Navbar showItems={false} />
-      {/* Background with chess pattern and gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background to-background/70 z-0">
-        <div className="chess-board-bg absolute inset-0 opacity-20"></div>
+           {/* Background wrapper - this needs to be fixed position to cover the entire screen */}
+           <div className="fixed inset-0 w-full h-full z-0">
+        {/* Gradient background */}
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90"></div>
+        {/* Chess board pattern overlay */}
+        <div className="absolute inset-0 w-full h-full chess-board-bg opacity-15"></div>
       </div>
 
       {/* Decorative blurred circles for visual interest */}
@@ -110,21 +113,23 @@ const FindMatch = () => {
               </div>
             </div>
 
-            {/* Game Type Select */}
+            {/* Rank Select */}
             <div className="space-y-4">
               <label className="block text-lg font-medium text-white mb-2">
-                Game Type
+                Rank Range
               </label>
-              <Select value={gameType} onValueChange={setGameType}>
+              <Select value={rankRange} onValueChange={setRankRange}>
                 <SelectTrigger className="w-full bg-white/5 border-white/10 text-white">
-                  <SelectValue placeholder="Select game type" />
+                  <SelectValue placeholder="Select rank range" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="any">Any</SelectItem>
-                  <SelectItem value="classic">Classic</SelectItem>
-                  <SelectItem value="rapid">Rapid</SelectItem>
-                  <SelectItem value="blitz">Blitz</SelectItem>
-                  <SelectItem value="bullet">Bullet</SelectItem>
+                  <SelectItem value="beginner">Beginner (0–1200)</SelectItem>
+                  <SelectItem value="intermediate">
+                    Intermediate (1200–1400)
+                  </SelectItem>
+                  <SelectItem value="pro">Pro (1400–1700)</SelectItem>
+                  <SelectItem value="elite">Elite (1700+)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

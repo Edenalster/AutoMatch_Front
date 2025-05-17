@@ -390,11 +390,15 @@ export default function BracketTournament() {
 
   return (
     <div className="min-h-screen bg-chess-dark text-white">
-      {/* Background with chess pattern */}
-      <div className="absolute inset-0 bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90 z-0"></div>
-      <div className="absolute inset-0 chess-board-bg opacity-15 z-0"></div>
+         {/* Background wrapper - this needs to be fixed position to cover the entire screen */}
+         <div className="fixed inset-0 w-full h-full z-0">
+        {/* Gradient background */}
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90"></div>
+        {/* Chess board pattern overlay */}
+        <div className="absolute inset-0 w-full h-full chess-board-bg opacity-15"></div>
+      </div>
       
-      <Navbar showItems={true} />
+      <Navbar showItems={false} />
       
       <div className="container mx-auto px-4 py-8 relative z-10">
       <div className="text-center mb-8">

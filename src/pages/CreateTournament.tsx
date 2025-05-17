@@ -1,8 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Trophy, Users } from "lucide-react";
+import { Trophy, Users, Globe, Lock, Award } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -31,7 +31,7 @@ const formSchema = z.object({
     .min(3, "Tournament name must be at least 3 characters"),
   maxPlayers: z.string(),
   entryFee: z.string(),
-  gameType: z.string(),
+  visibility: z.enum(["public", "private"]),
 });
 
 const CreateTournament = () => {
@@ -41,9 +41,28 @@ const CreateTournament = () => {
       tournamentName: "",
       maxPlayers: "8",
       entryFee: "10",
-      gameType: "blitz",
+      visibility: "private",
     },
   });
+
+  const [rankRange, setRankRange] = useState<{
+    label: string;
+    min: number;
+    max: number;
+  } | null>(null);
+
+  const [prizePool, setPrizePool] = useState<number>(80); // Default based on default values
+
+  // Watch form values to update prize pool
+  const maxPlayers = form.watch("maxPlayers");
+  const entryFee = form.watch("entryFee");
+
+  // Update prize pool whenever maxPlayers or entryFee changes
+  useEffect(() => {
+    const players = parseInt(maxPlayers);
+    const fee = parseInt(entryFee);
+    setPrizePool(players * fee);
+  }, [maxPlayers, entryFee]);
 
   const navigate = useNavigate();
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
@@ -53,24 +72,55 @@ const CreateTournament = () => {
   };
 
   useEffect(() => {
+    const fetchUserRank = async () => {
+      const lichessId = localStorage.getItem("lichessId");
+      if (!lichessId) return;
+
+      try {
+        const res = await fetch(`https://lichess.org/api/user/${lichessId}`);
+        const data = await res.json();
+        const blitzRating = data?.perfs?.blitz?.rating ?? 1500;
+
+        // Determine rank range
+        let rank: { label: string; min: number; max: number } = {
+          label: "Beginner",
+          min: 0,
+          max: 1200,
+        };
+
+        if (blitzRating >= 1200 && blitzRating < 1400) {
+          rank = { label: "Intermediate", min: 1200, max: 1400 };
+        } else if (blitzRating >= 1400 && blitzRating < 1700) {
+          rank = { label: "Pro", min: 1400, max: 1700 };
+        } else if (blitzRating >= 1700) {
+          rank = { label: "Elite", min: 1700, max: 2200 };
+        }
+
+        setRankRange(rank);
+      } catch (err) {
+        console.error("Failed to fetch Lichess rating", err);
+      }
+    };
+
     document.title = "Create Tournament - AutoMatch";
+    fetchUserRank(); // ✅ call it here
   }, []);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      const userId   = localStorage.getItem("userId");      // ← changed
-      console.log("userId", userId)
+      const userId = localStorage.getItem("userId");      // ← changed
+      console.log("userId", userId);
       const lichessId = localStorage.getItem("lichessId");
       const token = localStorage.getItem("token");
       const response = await axios.post(
         `${backendUrl}/api/lichess/tournaments`,
         {
-          createdBy:      userId!,
-          tournamentName: values.tournamentName,
-          playerIds: [lichessId], // רק היוצר
+          createdBy: userId,
+          playerIds: [lichessId || "placeholderUser"],
           maxPlayers: parseInt(values.maxPlayers),
-          gameType: values.gameType,
+          tournamentName: values.tournamentName,
           entryFee: parseInt(values.entryFee),
+          visibility: values.visibility
         },
         {
           headers: {
@@ -82,6 +132,19 @@ const CreateTournament = () => {
 
       const tournamentId = response.data.tournament._id; // Get the tournamentId
       const lichessGameUrl = response.data.games?.[0];
+      setRankRange(response.data.rankRange);
+      console.log("🎯 Rank range received:", response.data.rankRange);
+
+      // Give UI time to render rankRange before navigating away
+      // ✅ Correct
+      setTimeout(() => {
+        const lichessGameUrl = response.data.games?.[0];
+        if (lichessGameUrl) {
+          navigate(`/chessboard?gameUrl=${encodeURIComponent(lichessGameUrl)}`);
+        } else {
+          navigate(`/lobby/${tournamentId}`);
+        }
+      }, 1500);
 
       // Store the tournamentId in localStorage
       localStorage.setItem("tournamentId", tournamentId);
@@ -98,9 +161,13 @@ const CreateTournament = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Background gradient with a chess board pattern overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90 z-0"></div>
-      <div className="absolute inset-0 chess-board-bg opacity-15 z-0"></div>
+          {/* Background wrapper - this needs to be fixed position to cover the entire screen */}
+          <div className="fixed inset-0 w-full h-full z-0">
+        {/* Gradient background */}
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90"></div>
+        {/* Chess board pattern overlay */}
+        <div className="absolute inset-0 w-full h-full chess-board-bg opacity-15"></div>
+      </div>
 
       {/* Decorative blurred elements */}
       <div className="absolute top-20 left-10 w-64 h-64 bg-chess-gold/10 rounded-full filter blur-3xl animate-pulse-soft"></div>
@@ -164,7 +231,7 @@ const CreateTournament = () => {
                                 <SelectValue placeholder="Select max players" />
                               </SelectTrigger>
                               <SelectContent>
-                              <SelectItem value="2">2 Players</SelectItem>
+                                <SelectItem value="2">2 Players</SelectItem>
                                 <SelectItem value="4">4 Players</SelectItem>
                                 <SelectItem value="8">8 Players</SelectItem>
                                 <SelectItem value="16">16 Players</SelectItem>
@@ -177,27 +244,49 @@ const CreateTournament = () => {
                       </FormItem>
                     )}
                   />
-
                   <FormField
                     control={form.control}
-                    name="gameType"
+                    name="visibility"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Game Type</FormLabel>
+                        <FormLabel>Visibility</FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select game type" />
+                            <div className="flex items-center gap-2">
+                              {field.value === "public" && (
+                                <>
+                                  <Globe className="h-4 w-4 text-chess-gold" />
+                                  <span>Public - anyone can join</span>
+                                </>
+                              )}
+                              {field.value === "private" && (
+                                <>
+                                  <Lock className="h-4 w-4 text-chess-gold" />
+                                  <span>Private - invite only</span>
+                                </>
+                              )}
+                              {!field.value && (
+                                <span className="text-muted-foreground">
+                                  Select visibility
+                                </span>
+                              )}
+                            </div>
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="blitz">Blitz (5 min)</SelectItem>
-                            <SelectItem value="rapid">
-                              Rapid (10 min)
+                            <SelectItem value="public">
+                              <div className="flex items-center gap-2">
+                                <Globe className="h-4 w-4 text-chess-gold" />
+                                <span>Public - anyone can join</span>
+                              </div>
                             </SelectItem>
-                            <SelectItem value="classic">
-                              Classic (30 min)
+                            <SelectItem value="private">
+                              <div className="flex items-center gap-2">
+                                <Lock className="h-4 w-4 text-chess-gold" />
+                                <span>Private - invite only</span>
+                              </div>
                             </SelectItem>
                           </SelectContent>
                         </Select>
@@ -234,6 +323,27 @@ const CreateTournament = () => {
                     </FormItem>
                   )}
                 />
+
+                {/* New Prize Pool Display */}
+                <div className="bg-chess-dark/60 backdrop-blur-lg rounded-lg border border-chess-gold/30 p-4 shadow-lg">
+                  <div className="flex items-center justify-center gap-3">
+                    <Award className="h-6 w-6 text-chess-gold" />
+                    <span className="text-xl font-bold text-white">Prize Pool:</span>
+                    <span className="text-2xl font-bold text-chess-gold">${prizePool}</span>
+                  </div>
+                  <p className="text-white/70 text-center text-sm mt-2">
+                    {parseInt(maxPlayers)} players × ${parseInt(entryFee)} entry fee
+                  </p>
+                </div>
+
+                {rankRange && (
+                  <div className="text-center text-lg text-white font-medium">
+                    Rank Range:
+                    <span className="text-chess-gold ml-2">
+                      {rankRange.label} ({rankRange.min}–{rankRange.max})
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex flex-row gap-10">
                   <Button

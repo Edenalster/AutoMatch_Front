@@ -25,6 +25,7 @@ interface TournamentCardProps {
   featured?: boolean;
   /** Optional additional class names */
   className?: string;
+  onJoin?: () => void;
 }
 
 /**
@@ -77,6 +78,8 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
   startTime,
   featured = false,
   className,
+  onJoin,
+  
 }) => {
   return (
     <div
@@ -134,11 +137,12 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
 
         {/* Call-to-action button */}
         <div className="mt-auto pt-4">
-          <Button
-            className={featured ? "primary-btn w-full" : "secondary-btn w-full"}
-          >
-            Join Tournament
-          </Button>
+        <Button
+  onClick={onJoin}
+  className={featured ? "primary-btn w-full" : "secondary-btn w-full"}
+>
+  Join Tournament
+</Button>
         </div>
       </div>
     </div>

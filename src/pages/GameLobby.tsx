@@ -32,6 +32,11 @@ const GameLobby = () => {
   const [isCreator, setIsCreator] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [rankRange, setRankRange] = useState<{
+    label: string;
+    min: number;
+    max: number;
+  } | null>(null);
   
   // שימוש ב-useRef במקום useState למטמון כי אין צורך לרנדר מחדש כשהמטמון משתנה
   const playersCacheRef = useRef<{[id: string]: Player}>({});
@@ -53,6 +58,7 @@ const GameLobby = () => {
   
       setMaxPlayers(data.maxPlayers);
       setTournamentName(data.tournamentName || "Tournament");
+      setRankRange(data.rankRange || null);
       localStorage.setItem("tournamentName1", data.tournamentName);
       
       // חשוב: שמירת ה-ID של הטורניר בלוקל סטורג' כדי שכל שחקן יוכל להגיע לעמוד ה-bracket
@@ -231,6 +237,11 @@ const GameLobby = () => {
                 <h1 className="text-4xl font-bold text-center">
                   {tournamentName}
                 </h1>
+                {rankRange && (
+                  <p className="text-center text-sm text-chess-gold font-semibold">
+                    Rank: {rankRange.label} ({rankRange.min}–{rankRange.max})
+                  </p>
+                )}
                 <div className="flex justify-center items-center gap-2 text-xl text-chess-gold">
                   <span>
                     {currentPlayers}/{maxPlayers || "?"} Players
