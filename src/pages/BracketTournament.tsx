@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { Button } from "../components/ui/button";
-import { Trophy, User, Clock, AlertCircle, Award, ArrowRightCircle, BookOpen, Brain } from "lucide-react";
+import { Trophy, User, Clock, AlertCircle, Award, ArrowRightCircle, BookOpen, Brain, Eye, RefreshCw, WifiOff } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../components/ui/dialog";
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
@@ -61,6 +61,8 @@ export default function BracketTournament() {
   const [playerMap, setPlayerMap] = useState<{ [id: string]: { username: string, rating: number } }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const lichessId = localStorage.getItem("lichessId");
   const [isCreator, setIsCreator] = useState(false);
   
@@ -85,6 +87,86 @@ export default function BracketTournament() {
     document.title = "Tournament Bracket - AutoMatch";
   }, []);
 
+  // פונקציה לבדיקת אם השגיאה היא שגיאת רשת
+  const isNetworkError = (error: any): boolean => {
+    if (!error) return false;
+    
+    return (
+      error instanceof TypeError ||
+      (typeof error === 'string' && (
+        error.includes('network') ||
+        error.includes('fetch') ||
+        error.includes('Network') ||
+        error.includes('ERR_NETWORK') ||
+        error.includes('ERR_CONNECTION') ||
+        error.includes('CHANGED')
+      )) ||
+      (error instanceof Error && (
+        error.message.includes('network') ||
+        error.message.includes('fetch') ||
+        error.message.includes('Network') ||
+        error.message.includes('ERR_NETWORK') ||
+        error.message.includes('ERR_CONNECTION') ||
+        error.message.includes('CHANGED')
+      ))
+    );
+  };
+
+  // פונקציית fetch עם ניסיון חוזר
+  const fetchWithRetry = async (url: string, options = {}, maxRetries = 3, delayMs = 1500): Promise<Response> => {
+    let lastError;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Fetch attempt ${attempt + 1}/${maxRetries} to ${url}`);
+        const response = await fetch(url, options);
+        return response;
+      } catch (err) {
+        lastError = err;
+        console.error(`❌ Attempt ${attempt + 1} failed:`, err);
+        
+        // אם זו לא שגיאת רשת או אם זה הניסיון האחרון, זרוק את השגיאה
+        if (!isNetworkError(err) || attempt >= maxRetries - 1) {
+          throw err;
+        }
+        
+        // המתן לפני הניסיון הבא
+        console.log(`⏱️ Waiting ${delayMs}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        
+        // הגדל את זמן ההמתנה לניסיון הבא
+        delayMs = delayMs * 1.5;
+      }
+    }
+    
+    // קוד זה לא אמור להגיע לכאן, אבל ליתר בטחון
+    throw lastError;
+  };
+
+  // האזנה לשינויי חיבור רשת
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log("🌐 Browser back online, refreshing data...");
+      setIsOffline(false);
+      setError(null);
+      fetchTournament();
+    };
+    
+    const handleOffline = () => {
+      console.log("📴 Browser offline");
+      setIsOffline(true);
+      setError("You are currently offline. Please check your internet connection.");
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   // פונקציה לבדיקת רמאות במשחק
   
   // const checkCheating = async (match: Match) => {
@@ -98,7 +180,11 @@ export default function BracketTournament() {
   //   setCheatingCheck(prev => ({ ...prev, isChecking: true }));
     
   //   try {
-  //     const response = await fetch(`${backendUrl}/api/lichess/analyze/cheating/${gameId}/${lichessId}`);
+  //     const response = await fetchWithRetry(
+  //       `${backendUrl}/api/lichess/analyze/cheating/${gameId}/${lichessId}`,
+  //       {},
+  //       2
+  //     );
       
   //     if (!response.ok) {
   //       const errorData = await response.json();
@@ -134,76 +220,113 @@ export default function BracketTournament() {
   //   }
   // };
 
-  useEffect(() => {
-    const fetchTournament = async () => {
-      if (!tournamentId) {
-        setError("Tournament ID is missing");
-        setLoading(false);
-        return;
+  // פונקציה לטעינת נתוני הטורניר עם ניסיון חוזר
+  const fetchTournament = async () => {
+    if (!tournamentId) {
+      setError("Tournament ID is missing");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // שימוש ב-fetchWithRetry במקום fetch רגיל
+      const res = await fetchWithRetry(
+        `${backendUrl}/api/lichess/tournaments/${tournamentId}`,
+        {},
+        3 // מספר ניסיונות מקסימלי
+      );
+      
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}: ${res.statusText}`);
       }
+      
+      const data = await res.json();
+      console.log("📦 Tournament data:", data);
+      
+      // נקה את השגיאה ואפס את מונה הניסיונות אם הבקשה הצליחה
+      setError(null);
+      setRetryCount(0);
+      setTournament(data);
+      
+      // בדיקה אם המשתמש הוא יוצר הטורניר
+      const userId = localStorage.getItem("userId");
+      setIsCreator(userId === data.createdBy);
 
-      try {
-        const res = await fetch(`${backendUrl}/api/lichess/tournaments/${tournamentId}`);
-        if (!res.ok) {
-          throw new Error(`Server returned ${res.status}: ${res.statusText}`);
-        }
-        
-        const data = await res.json();
-        console.log("📦 Tournament data:", data);
-        
-        setTournament(data);
-        
-        // בדיקה אם המשתמש הוא יוצר הטורניר
-        const userId = localStorage.getItem("userId");
-        setIsCreator(userId === data.createdBy);
+      // איסוף מידע על כל השחקנים - גם כאן נשתמש ב-fetchWithRetry
+      const newPlayerMap: { [id: string]: { username: string, rating: number } } = {};
 
-        // איסוף מידע על כל השחקנים
-        const newPlayerMap: { [id: string]: { username: string, rating: number } } = {};
-
-        if (Array.isArray(data.playerIds)) {
-          await Promise.all(data.playerIds.map(async (id: string) => {
-            try {
-              const res = await fetch(`https://lichess.org/api/user/${id}`);
-              const user = await res.json();
-              newPlayerMap[id] = { 
-                username: user.username || id,
-                rating: user.perfs?.blitz?.rating || 1500
-              };
-            } catch {
-              newPlayerMap[id] = { 
-                username: id,
-                rating: 1500
-              };
-            }
-          }));
-        }
-
-        setPlayerMap(newPlayerMap);
-
-        // ניסיון לקדם את הטורניר אם כל המשחקים בסיבוב הנוכחי הסתיימו
-        if (data.status === "active") {
+      if (Array.isArray(data.playerIds)) {
+        await Promise.all(data.playerIds.map(async (id: string) => {
           try {
-            await fetch(`${backendUrl}/api/lichess/tournaments/${tournamentId}/advance`, {
-              method: "POST",
-            });
-          } catch (advanceError) {
-            console.warn("Non-critical: Failed to advance tournament:", advanceError);
+            const res = await fetchWithRetry(`https://lichess.org/api/user/${id}`, {}, 2);
+            const user = await res.json();
+            newPlayerMap[id] = { 
+              username: user.username || id,
+              rating: user.perfs?.blitz?.rating || 1500
+            };
+          } catch {
+            newPlayerMap[id] = { 
+              username: id,
+              rating: 1500
+            };
           }
-        }
-      } catch (err) {
-        console.error("❌ Failed to fetch bracket data:", err);
-        setError(err instanceof Error ? err.message : "Failed to load tournament data");
-      } finally {
-        setLoading(false);
+        }));
       }
-    };
 
+      setPlayerMap(newPlayerMap);
+
+      // ניסיון לקדם את הטורניר אם כל המשחקים בסיבוב הנוכחי הסתיימו
+      if (data.status === "active") {
+        try {
+          await fetchWithRetry(
+            `${backendUrl}/api/lichess/tournaments/${tournamentId}/advance`,
+            { method: "POST" },
+            2
+          );
+        } catch (advanceError) {
+          console.warn("Non-critical: Failed to advance tournament:", advanceError);
+        }
+      }
+    } catch (err) {
+      console.error("❌ Failed to fetch bracket data:", err);
+      
+      // טיפול ספציפי בשגיאות רשת
+      if (isNetworkError(err)) {
+        // הגדלת מונה הניסיונות
+        const newRetryCount = retryCount + 1;
+        setRetryCount(newRetryCount);
+        
+        // אם לא הגענו למקסימום ניסיונות, ננסה שוב אוטומטית אחרי השהייה
+        if (newRetryCount < 3) {
+          console.log(`🔄 Network error, will retry automatically in ${2000 * newRetryCount}ms`);
+          setTimeout(() => {
+            fetchTournament();
+          }, 2000 * newRetryCount);
+          
+          setError(`Network connection issue. Retrying... (${newRetryCount}/3)`);
+        } else {
+          setError("Network connection issues. Please check your internet connection and try again.");
+        }
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to load tournament data");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchTournament();
     
-    // פולינג לעדכון כל 15 שניות
-    const interval = setInterval(fetchTournament, 15000);
+    // פולינג לעדכון כל 15 שניות - רק אם אין שגיאה
+    const interval = setInterval(() => {
+      if (!error && !isOffline) {
+        fetchTournament();
+      }
+    }, 15000);
+    
     return () => clearInterval(interval);
-  }, [tournamentId]);
+  }, [tournamentId, isOffline]);
 
   // בדיקה אוטומטית של רמאות בטעינת המסך - עם localStorage לזכירת הבדיקות הקודמות
   useEffect(() => {
@@ -262,15 +385,21 @@ export default function BracketTournament() {
     
     try {
       setLoading(true);
-      await fetch(`${backendUrl}/api/lichess/tournaments/${tournamentId}/advance`, {
-        method: "POST",
-      });
+      await fetchWithRetry(
+        `${backendUrl}/api/lichess/tournaments/${tournamentId}/advance`,
+        { method: "POST" },
+        3
+      );
       
       // רענון הדף אחרי קידום
       window.location.reload();
     } catch (err) {
       console.error("Failed to advance tournament:", err);
-      setError("Failed to advance tournament to next round");
+      if (isNetworkError(err)) {
+        setError("Network connection issue. Please try again.");
+      } else {
+        setError("Failed to advance tournament to next round");
+      }
     } finally {
       setLoading(false);
     }
@@ -312,7 +441,7 @@ export default function BracketTournament() {
     return match.player1 === lichessId || match.player2 === lichessId;
   };
 
-  // נתוח המשחק
+  // נתוח המשחק עם ניסיון חוזר
   const analyzeGame = async (match: Match) => {
     if (!lichessId || !match.lichessUrl) return;
     
@@ -326,7 +455,11 @@ export default function BracketTournament() {
     setCurrentAnalysis(null);
     
     try {
-      const response = await fetch(`${backendUrl}/api/lichess/analyze/game/${gameId}/${lichessId}`);
+      const response = await fetchWithRetry(
+        `${backendUrl}/api/lichess/analyze/game/${gameId}/${lichessId}`,
+        {},
+        2
+      );
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -337,12 +470,17 @@ export default function BracketTournament() {
       setCurrentAnalysis(data);
     } catch (err) {
       console.error("Failed to analyze game:", err);
-      setAnalysisError(err instanceof Error ? err.message : "Failed to analyze game");
+      if (isNetworkError(err)) {
+        setAnalysisError("Network connection issue. Please check your internet connection and try again.");
+      } else {
+        setAnalysisError(err instanceof Error ? err.message : "Failed to analyze game");
+      }
     } finally {
       setAnalyzingGame(false);
     }
   };
 
+  // תצוגת טעינה
   if (loading) {
     return (
       <div className="min-h-screen bg-chess-dark text-white flex justify-center items-center">
@@ -351,20 +489,63 @@ export default function BracketTournament() {
     );
   }
 
+  // תצוגת שגיאה משופרת
   if (error) {
+    const isNetworkIssue = 
+      isOffline || 
+      error.includes("network") || 
+      error.includes("offline") || 
+      error.includes("connection") ||
+      error.includes("Retrying");
+    
     return (
       <div className="min-h-screen bg-chess-dark text-white p-6 flex flex-col items-center justify-center">
         <Navbar showItems={true} />
         <div className="max-w-md mx-auto text-center">
-          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-4">Error Loading Tournament</h1>
+          {isNetworkIssue ? (
+            <WifiOff className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          ) : (
+            <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          )}
+          
+          <h1 className="text-2xl font-bold mb-4">
+            {isNetworkIssue ? "Connection Error" : "Error Loading Tournament"}
+          </h1>
+          
           <p className="mb-6 text-gray-300">{error}</p>
-          <Button
-            onClick={() => navigate("/")}
-            className="bg-chess-gold text-black hover:bg-yellow-500"
-          >
-            Back to Home
-          </Button>
+          
+          {isNetworkIssue && (
+            <div className="mb-6 p-4 bg-gray-800 rounded-lg text-left">
+              <h3 className="font-bold text-yellow-400 mb-2">Troubleshooting tips:</h3>
+              <ul className="text-gray-300 list-disc pl-4 space-y-1">
+                <li>Check your internet connection</li>
+                <li>Make sure you're not switching between networks</li>
+                <li>Try refreshing the page</li>
+              </ul>
+            </div>
+          )}
+          
+          <div className="flex space-x-3 justify-center">
+            <Button
+              onClick={() => {
+                setLoading(true);
+                setError(null);
+                setRetryCount(0);
+                fetchTournament();
+              }}
+              className="bg-chess-secondary text-white hover:bg-blue-700"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry
+            </Button>
+            
+            <Button
+              onClick={() => navigate("/")}
+              className="bg-chess-gold text-black hover:bg-yellow-500"
+            >
+              Back to Home
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -551,6 +732,19 @@ export default function BracketTournament() {
                                 Play Now
                               </Button>
                             )}
+
+                            {/* כפתור לצפייה בשידור חי - מוצג רק אם המשחק פעיל */}
+                                {match.lichessUrl && match.lichessUrl !== "#" && (
+                                 <Button
+                                 onClick={() => navigate(`/live/tournaments/${tournamentId}/stream`)}
+                                 className="w-full bg-chess-secondary hover:bg-blue-700 text-white"
+                               >
+                                 <Eye className="mr-2 h-4 w-4" />
+                                 Watch Live
+                               </Button>
+                               
+                                )}
+  
                             
                             {/* כפתור לניתוח משחק - מוצג רק אם המשחק הסתיים והמשתמש שיחק בו */}
                             {isCompletedMatchWhereUserPlayed && (
@@ -694,9 +888,50 @@ export default function BracketTournament() {
               <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-red-400 mb-2">Analysis Failed</h3>
               <p className="text-gray-300 mb-4">{analysisError}</p>
-              <Button onClick={() => setAnalysisOpen(false)} className="bg-gray-700 hover:bg-gray-600">
-                Close
-              </Button>
+              
+              {/* הוספת כפתור ניסיון חוזר במקרה של שגיאת רשת */}
+              {isNetworkError(analysisError) ? (
+                <div className="flex justify-center gap-3">
+                  <Button onClick={() => {
+                    setAnalyzingGame(true);
+                    setAnalysisError(null);
+                    
+                    // מצא את המשחק בטורניר לפי ה-gameId הנוכחי
+                    const currentGameId = currentAnalysis?.gameId;
+                    if (currentGameId) {
+                      let foundMatch: Match | undefined;
+                      tournament.bracket.forEach(round => {
+                        round.matches.forEach(match => {
+                          const gameId = match.lichessUrl?.split('/').pop()?.split('?')[0];
+                          if (gameId === currentGameId) {
+                            foundMatch = match;
+                          }
+                        });
+                      });
+                      
+                      if (foundMatch) {
+                        analyzeGame(foundMatch);
+                      } else {
+                        setAnalyzingGame(false);
+                        setAnalysisError("Could not find the game to retry analysis.");
+                      }
+                    } else {
+                      setAnalyzingGame(false);
+                      setAnalysisError("No game data available for retry.");
+                    }
+                  }} className="bg-chess-secondary hover:bg-blue-700 text-white">
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Retry
+                  </Button>
+                  <Button onClick={() => setAnalysisOpen(false)} className="bg-gray-700 hover:bg-gray-600">
+                    Close
+                  </Button>
+                </div>
+              ) : (
+                <Button onClick={() => setAnalysisOpen(false)} className="bg-gray-700 hover:bg-gray-600">
+                  Close
+                </Button>
+              )}
             </div>
           )}
           

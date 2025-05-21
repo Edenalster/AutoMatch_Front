@@ -78,7 +78,11 @@ const AfterGame = () => {
         }
       } catch (err) {
         console.error("❌ Error fetching game result:", err);
-        setError(err instanceof Error ? err.message : "Failed to fetch game result");
+        if (err instanceof Error && err.message.includes("404")) {
+          setError("Game is still in progress...");
+        } else {
+          setError("Failed to fetch game result");
+        }
       } finally {
         setLoading(false);
       }
@@ -88,18 +92,18 @@ const AfterGame = () => {
 
     const interval = setInterval(() => {
       window.location.reload();
-    }, 120000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [gameId]);
 
   // Update match result in DB when winner/status are ready
   useEffect(() => {
-    const updateMatchInDB = async () => {
-      if (gameId && (winner || status === "draw")) {
+    const interval = setInterval(async () => {
+      if ((winner || status === "draw") && gameId) {
         try {
-          console.log("🎮 Updating match in DB with:", { gameId, winner, status });
-
+          console.log("🎮 Auto-updating match in DB with:", { gameId, winner, status });
+  
           const apiUrl = `${backendUrl}/api/lichess/tournaments/updateMatchResultByLichessUrl`;
           const response = await fetch(apiUrl, {
             method: "POST",
@@ -110,27 +114,26 @@ const AfterGame = () => {
               status: status || "completed",
             }),
           });
-
+  
           const text = await response.text();
           if (!response.ok) {
-            console.error(`Server responded with ${response.status}: ${text}`);
-            throw new Error(`Error ${response.status}: ${text}`);
-          }
-
-          try {
-            const data = JSON.parse(text);
-            console.log("✅ Match updated successfully:", data);
-          } catch {
-            console.log("Response was not JSON:", text);
+            console.error(`❌ DB update failed ${response.status}: ${text}`);
+          } else {
+            try {
+              const data = JSON.parse(text);
+              console.log("✅ DB updated successfully:", data);
+            } catch {
+              console.log("ℹ️ DB update response was not JSON:", text);
+            }
           }
         } catch (err) {
-          console.error("❌ Error updating match in DB:", err);
+          console.error("❌ Error auto-updating DB:", err);
         }
       }
-    };
-
-    if (!loading) updateMatchInDB();
-  }, [winner, status, gameId, backendUrl, loading]);
+    }, 5000); // every 5 seconds
+  
+    return () => clearInterval(interval);
+  }, [winner, status, gameId, backendUrl]);
 
   const handleBackToTournament = () => {
     navigate("/tournament");

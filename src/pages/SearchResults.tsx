@@ -1,7 +1,8 @@
+// SearchResults.tsx עם כפתור לכניסה ל-bracket
 import { useEffect, useState } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
-import { ChevronLeft, Filter } from "lucide-react";
+import { ChevronLeft,  Filter, TrophyIcon } from "lucide-react";
 import Navbar from "../components/Navbar";
 import TournamentCard from "../components/TournamentCard";
 
@@ -16,6 +17,7 @@ interface Tournament {
   entryFee: number;
   playerIds: string[];
   maxPlayers: number;
+  status?: string;
 }
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
@@ -34,14 +36,22 @@ const SearchResults = () => {
           `${backendUrl}/api/lichess/tournaments/search?entryFee=${entryFee}&rankRange=${rankRange}`
         );
         const data = await res.json();
-        setTournaments(data.tournaments ?? []);
+  
+        const filtered = (data.tournaments ?? [])
+          .filter((t: Tournament) => t.status !== "completed") // ✅ hide completed
+          .sort((a: Tournament, b: Tournament) => b._id.localeCompare(a._id)); // newest first
+  
+        setTournaments(filtered);
       } catch (err) {
         console.error("❌ Failed to fetch tournaments:", err);
         setTournaments([]);
       }
     };
-
+  
     fetchTournaments();
+  
+    const interval = setInterval(fetchTournaments, 5000); // 🕒 refresh every 5 sec
+    return () => clearInterval(interval);
   }, [entryFee, rankRange]);
 
   const handleJoin = async (tournamentId: string) => {
@@ -88,12 +98,17 @@ const SearchResults = () => {
     }
   };
 
+  // פונקציה חדשה לניתוב לדף ה-bracket של טורניר
+  const viewBracket = (tournamentId: string) => {
+    navigate(`/bracket/${tournamentId}`);
+  };
+
   return (
     <div className="min-h-screen bg-chess-dark">
       <Navbar showItems={false} />
 
-       {/* Background wrapper - this needs to be fixed position to cover the entire screen */}
-       <div className="fixed inset-0 w-full h-full z-0">
+      {/* Background wrapper - this needs to be fixed position to cover the entire screen */}
+      <div className="fixed inset-0 w-full h-full z-0">
         {/* Gradient background */}
         <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90"></div>
         {/* Chess board pattern overlay */}
@@ -144,22 +159,34 @@ const SearchResults = () => {
         {tournaments && tournaments.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {tournaments.map((tournament) => (
-              <TournamentCard
-                key={tournament._id}
-                title={tournament.tournamentName}
-                type={tournament.rankRange?.label || "Ranked"}
-                avgRating={
-                  tournament.rankRange
-                    ? (tournament.rankRange.min + tournament.rankRange.max) / 2
-                    : 1500
-                }
-                prizePool={tournament.entryFee * tournament.maxPlayers}
-                players={tournament.playerIds.length}
-                maxPlayers={tournament.maxPlayers}
-                startTime="Soon"
-                featured={false}
-                onJoin={() => handleJoin(tournament._id)}
-              />
+              <div key={tournament._id} className="flex flex-col">
+                <TournamentCard
+                  title={tournament.tournamentName}
+                  type={tournament.rankRange?.label || "Ranked"}
+                  avgRating={
+                    tournament.rankRange
+                      ? (tournament.rankRange.min + tournament.rankRange.max) / 2
+                      : 1500
+                  }
+                  prizePool={tournament.entryFee * tournament.maxPlayers}
+                  players={tournament.playerIds.length}
+                  maxPlayers={tournament.maxPlayers}
+                  startTime={tournament.status === "active" ? "Ongoing" : "Soon"}
+                  featured={false}
+                  onJoin={() => handleJoin(tournament._id)}
+                />
+                
+                {/* הוספת כפתור לצפייה בטורניר */}
+                <div className="flex space-x-2 mt-2">
+  <Button 
+    onClick={() => viewBracket(tournament._id)}
+    className="flex-1 bg-chess-secondary hover:bg-blue-700 text-white flex items-center justify-center"
+  >
+    <TrophyIcon className="mr-2 h-4 w-4" />
+    View Bracket
+  </Button>
+</div>
+              </div>
             ))}
           </div>
         ) : (
