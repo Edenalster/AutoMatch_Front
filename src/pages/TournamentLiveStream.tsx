@@ -1,9 +1,10 @@
-// TournamentLiveStream.tsx - Fixed for live game viewing
+// TournamentLiveStream.tsx - Real live chess viewing with chessboard.js
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import '../components/ui/TournamentLiveStream.css';
 
+// Types
 interface Tournament {
   id: string;
   name: string;
@@ -40,9 +41,19 @@ interface ChatMessage {
   tournamentId: string;
 }
 
+interface GameState {
+  moves: string;
+  wtime?: number;
+  btime?: number;
+  status: string;
+  winner?: string;
+  lastMoveTime?: number;
+}
+
 const TournamentLiveStream: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
-  console.log("🚀 TournamentLiveStream mounted, tournamentId:", tournamentId);
+  
+  // State
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -53,106 +64,352 @@ const TournamentLiveStream: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState<boolean>(false);
+  const [gameState, setGameState] = useState<GameState | null>(null);
   const [debug, setDebug] = useState<string[]>([]);
   
-  const socketRef = useRef<Socket | null>(null);
-  const chatContainerRef = useRef<HTMLDivElement | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  
+  // State for live clock updates
+  const [currentTime, setCurrentTime] = useState<number>(Date.now());
+
+  // Update clocks in real-time
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 100); // Update every 100ms for smooth countdown
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Calculate remaining time for display
+  const getDisplayTime = (baseTime: number | undefined, isWhiteTurn: boolean) => {
+    if (baseTime === undefined) return '0:00';
+    
+    // Only countdown if it's this player's turn and game is active
+    if (gameState?.status === 'started') {
+      const elapsed = currentTime - (gameState as any).lastMoveTime || 0;
+      const remaining = isWhiteTurn ? baseTime - elapsed : baseTime;
+      const timeInSeconds = Math.max(0, Math.floor(remaining / 1000));
+      
+      const minutes = Math.floor(timeInSeconds / 60);
+      const seconds = timeInSeconds % 60;
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    // Static display when not active
+    const timeInSeconds = Math.floor(baseTime / 1000);
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = timeInSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
   // Helper function to add debug messages
   const addDebug = (message: string) => {
     console.log("DEBUG:", message);
     setDebug(prev => [...prev, `${new Date().toISOString().slice(11, 19)} - ${message}`]);
   };
-  
-  // גלילה למטה כשיש הודעות חדשות בצ'אט
-  useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
-  }, [messages]);
-  
-  // התחבר לסוקט והתחל לקבל עדכונים
-  useEffect(() => {
-    console.log("🔄 Socket connection effect triggered, tournamentId:", tournamentId);
+
+  // State for simple chess board
+  const [boardPosition, setBoardPosition] = useState('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR');
+
+  // Chess piece symbols - Fixed to be WHITE vs BLACK (not white vs white outline)
+  const pieces = {
+    'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙', // White pieces 
+    'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'  // Black pieces 
+  };
+
+  // Convert FEN to board array
+  const fenToBoard = (fen: string) => {
+    const board = Array(8).fill(null).map(() => Array(8).fill(''));
+    const position = fen.split(' ')[0];
+    const rows = position.split('/');
     
+    for (let row = 0; row < 8; row++) {
+      let col = 0;
+      for (const char of rows[row]) {
+        if (char >= '1' && char <= '8') {
+          col += parseInt(char);
+        } else {
+          board[row][col] = char;
+          col++;
+        }
+      }
+    }
+    
+    return board;
+  };
+
+  // Refs
+  const socketRef = useRef<Socket | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const gameStreamRef = useRef<EventSource | null>(null);
+
+  // Update board position
+  const updateBoardPosition = (fen: string) => {
+    try {
+      addDebug(`Updating board to FEN: ${fen}`);
+      setBoardPosition(fen);
+    } catch (error) {
+      addDebug(`Error updating board: ${error}`);
+    }
+  };
+
+  // Stream game from Lichess
+  const streamGame = async (gameId: string) => {
+    // Close existing stream
+    if (gameStreamRef.current) {
+      gameStreamRef.current.close();
+      gameStreamRef.current = null;
+    }
+
+    if (!gameId) return;
+
+    addDebug(`Starting game stream for: ${gameId}`);
+    
+    try {
+      // Use fetch instead of EventSource to handle NDJSON
+      const response = await fetch(`https://lichess.org/api/stream/game/${gameId}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/x-ndjson'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      if (!response.body) {
+        throw new Error('No response body');
+      }
+
+      addDebug(`Game stream opened for: ${gameId}`);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      // Create a fake EventSource-like object for cleanup
+      gameStreamRef.current = {
+        close: () => {
+          reader.cancel();
+          addDebug(`Game stream closed for: ${gameId}`);
+        }
+      } as any;
+
+      const processStream = async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            
+            if (done) {
+              addDebug(`Game stream ended for: ${gameId}`);
+              break;
+            }
+
+            // Decode the chunk and add to buffer
+            buffer += decoder.decode(value, { stream: true });
+            
+            // Process complete lines (NDJSON format)
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || ''; // Keep incomplete line in buffer
+            
+            for (const line of lines) {
+              if (line.trim()) {
+                try {
+                  const data = JSON.parse(line);
+                  processGameData(data);
+                } catch (parseError) {
+                  console.warn('Failed to parse JSON line:', line, parseError);
+                  addDebug(`JSON parse error: ${parseError}`);
+                }
+              }
+            }
+          }
+        } catch (streamError) {
+          console.error('Stream reading error:', streamError);
+          addDebug(`Stream reading error: ${streamError}`);
+          
+          // Try to reconnect after a delay if we're still watching this game
+          setTimeout(() => {
+            if (selectedMatch && selectedMatch.gameId === gameId) {
+              addDebug(`Reconnecting game stream for: ${gameId}`);
+              streamGame(gameId);
+            }
+          }, 5000);
+        }
+      };
+
+      processStream();
+
+    } catch (error) {
+      console.error('Game stream error:', error);
+      addDebug(`Game stream error: ${error}`);
+      
+      // Try to reconnect after a delay if we're still watching this game
+      setTimeout(() => {
+        if (selectedMatch && selectedMatch.gameId === gameId) {
+          addDebug(`Reconnecting game stream for: ${gameId}`);
+          streamGame(gameId);
+        }
+      }, 5000);
+    }
+  };
+
+  // Process game data from stream
+  const processGameData = (data: any) => {
+    try {
+      addDebug(`Received game data: ${JSON.stringify(data).substring(0, 100)}`);
+      
+      // Check if this is initial game state (has id, variant, etc.)
+      if (data.id && data.variant) {
+        addDebug(`Initial game state received - turns: ${data.turns}, status: ${data.status?.name}`);
+        
+        // Convert to our GameState format
+        const gameState: GameState = {
+          moves: '', // Will be built from moves in subsequent messages
+          status: data.status?.name || 'unknown',
+          winner: data.winner || undefined
+        };
+        
+        setGameState(gameState);
+        
+        // Set board to current position using FEN
+        if (data.fen) {
+          addDebug(`Setting board to initial FEN: ${data.fen}`);
+          updateBoardPosition(data.fen);
+        } else {
+          addDebug(`No FEN in initial game data`);
+        }
+        
+      } else if (data.fen) {
+        // This is a move update with FEN position
+        addDebug(`Move update - FEN: ${data.fen}, last move: ${data.lm || 'none'}`);
+        
+        // Update board position directly with FEN
+        addDebug(`Move update - FEN: ${data.fen}, last move: ${data.lm || 'none'}`);
+        updateBoardPosition(data.fen);
+        
+        // Update game state with current timestamp
+        const gameState: GameState = {
+          moves: data.lm || '', // Last move
+          wtime: data.wc ? data.wc * 1000 : undefined, // Convert to milliseconds
+          btime: data.bc ? data.bc * 1000 : undefined, // Convert to milliseconds
+          status: 'started', // Assume ongoing if we're getting moves
+          lastMoveTime: Date.now() // Track when this update happened
+        };
+        
+        setGameState(gameState);
+        
+      } else {
+        addDebug(`Unknown game data format: ${JSON.stringify(data).substring(0, 200)}`);
+      }
+      
+    } catch (error) {
+      console.error('Error processing game data:', error);
+      addDebug(`Error processing game data: ${error}`);
+    }
+  };
+
+  // Simple chess board rendering
+  const renderChessBoard = () => {
+    const board = fenToBoard(boardPosition);
+    
+    return (
+      <div style={{
+        display: 'inline-block',
+        border: '3px solid #8B4513',
+        backgroundColor: '#8B4513',
+        borderRadius: '8px',
+        padding: '10px',
+        boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+      }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(8, 50px)',
+          gridTemplateRows: 'repeat(8, 50px)',
+          gap: '0'
+        }}>
+          {board.map((row, rowIndex) =>
+            row.map((piece, colIndex) => {
+              const isLight = (rowIndex + colIndex) % 2 === 0;
+              return (
+                <div
+                  key={`${rowIndex}-${colIndex}`}
+                  style={{
+                    width: '50px',
+                    height: '50px',
+                    backgroundColor: isLight ? '#F0D9B5' : '#B58863',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '28px',
+                    cursor: 'default',
+                    transition: 'all 0.3s ease',
+                    color: piece && piece >= 'a' && piece <= 'z' ? '#000000' : '#FFFFFF' // Black pieces black, white pieces white
+                  }}
+                >
+                  {piece ? pieces[piece as keyof typeof pieces] || piece : ''}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Tournament data and socket connection effect
+  useEffect(() => {
     if (!tournamentId) {
-      console.error("❌ No tournament ID provided");
-      setError('חסר מזהה טורניר');
+      setError('Missing tournament ID');
       setLoading(false);
       return;
     }
 
-    // טען את נתוני הטורניר
+    // Fetch tournament data
     const fetchTournamentData = async () => {
       try {
-        console.log(`📊 Fetching tournament data for ID: ${tournamentId}`);
         addDebug(`Fetching tournament data for ID: ${tournamentId}`);
         const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
         const url = `${backendUrl}/live/tournaments/${tournamentId}/stream`;
-        console.log(`🌐 API URL: ${url}`);
-        addDebug(`API URL: ${url}`);
         
-        console.log("📡 Starting API request...");
         const response = await fetch(url);
-        console.log(`📥 API response received: status ${response.status}`);
-        
         if (!response.ok) {
-          console.error(`❌ API error: ${response.status} ${response.statusText}`);
           throw new Error(`API error: ${response.status} ${response.statusText}`);
         }
         
-        console.log("🔄 Parsing API response...");
         const data = await response.json();
-        console.log("📦 API data received:", data);
-        addDebug(`Tournament data received: ${data.tournament?.name || 'unknown'}`);
+        addDebug(`Tournament data received`);
         
         if (data.tournament) {
-          console.log("🏆 Tournament data:", data.tournament);
           setTournament(data.tournament);
-        } else {
-          console.error("❌ Tournament data missing in API response");
         }
         
         if (data.players) {
-          console.log(`👥 Players data: ${data.players.length} players`);
           setPlayers(data.players);
-        } else {
-          console.error("❌ Players data missing in API response");
         }
         
         if (data.matches) {
-          console.log(`🎮 Matches data: ${data.matches.length} matches`);
-          console.log("🎮 Matches details:", data.matches);
-          
-          // Ensure all match URLs are properly formatted
           const processedMatches = data.matches.map((match: Match) => {
-            // Make sure lichessUrl is properly formed
-            if (match.lichessUrl && !match.lichessUrl.startsWith('http')) {
-              match.lichessUrl = `https://lichess.org/${match.gameId}`;
-            }
-            return match;
+            // Extract game ID from Lichess URL
+            const gameId = match.lichessUrl.split('/').pop()?.split('?')[0] || '';
+            return {
+              ...match,
+              gameId
+            };
           });
           
           setMatches(processedMatches);
           
-          // בחר משחק ראשון כברירת מחדל אם קיים
           if (processedMatches.length > 0) {
-            console.log(`🎯 Setting first match as default: ${processedMatches[0].gameId}`);
-            console.log("🎯 Match details:", processedMatches[0]);
-            addDebug(`Setting first match as default: ${processedMatches[0].gameId}`);
             setSelectedMatch(processedMatches[0]);
-          } else {
-            console.warn("⚠️ No matches available to select");
+            addDebug(`Setting first match as default: ${processedMatches[0].gameId}`);
           }
-        } else {
-          console.error("❌ Matches data missing in API response");
         }
         
         setLoading(false);
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'שגיאה לא ידועה';
-        console.error("❌ Error fetching tournament data:", errorMsg);
+        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+        console.error("Error fetching tournament data:", errorMsg);
         addDebug(`Error fetching tournament data: ${errorMsg}`);
         setError(errorMsg);
         setLoading(false);
@@ -161,13 +418,10 @@ const TournamentLiveStream: React.FC = () => {
     
     fetchTournamentData();
     
-    // התחבר לשרת Socket.IO
+    // Socket.IO connection
     const SOCKET_SERVER = process.env.REACT_APP_SOCKET_URL || 'https://automatch.cs.colman.ac.il';
-    console.log(`🔌 Connecting to Socket.IO server: ${SOCKET_SERVER}`);
-    addDebug(`Connecting to Socket.IO server: ${SOCKET_SERVER}`);
     
     try {
-      console.log("🔄 Creating Socket.IO instance...");
       socketRef.current = io(SOCKET_SERVER, {
         path: "/socket.io",
         transports: ['websocket', 'polling'],
@@ -177,343 +431,201 @@ const TournamentLiveStream: React.FC = () => {
         forceNew: true,
         autoConnect: true
       });
-      console.log("✅ Socket.IO instance created successfully");
     } catch (error) {
-      console.error("❌ Error creating Socket.IO instance:", error);
+      console.error("Error creating Socket.IO instance:", error);
     }
     
-    // השג משתמש מה-localStorage (אם קיים)
-    try {
-      console.log("🔄 Getting user data from localStorage...");
-      let user = {};
-      let token = '';
-      let lichessId = '';
-      
-      try {
-        const userStr = localStorage.getItem('user');
-        console.log("📦 User string from localStorage:", userStr);
-        user = JSON.parse(userStr || '{}');
-        console.log("👤 Parsed user object:", user);
-      } catch (e) {
-        console.error("❌ Error parsing user from localStorage:", e);
-      }
-      
-      token = localStorage.getItem('token') || '';
-      console.log("🔑 Token from localStorage:", token ? "present (length: " + token.length + ")" : "not found");
-      
-      lichessId = (user as any).lichessId || localStorage.getItem('lichessId') || '';
-      console.log("👤 LichessId:", lichessId || 'Not found');
-      addDebug(`User data from localStorage: ${lichessId || 'Not found'}`);
-    } catch (error) {
-      console.error("❌ Error getting user data from localStorage:", error);
-    }
-    
-    // טפל באירועי סוקט
+    // Socket event handlers
     if (socketRef.current) {
-      console.log("🔄 Setting up Socket.IO event handlers...");
+      const socket = socketRef.current;
       
-      // Connect event
-      socketRef.current.on('connect', () => {
-        console.log(`✅ Socket connected successfully! ID: ${socketRef.current?.id}`);
-        addDebug(`Socket connected successfully! ID: ${socketRef.current?.id}`);
+      socket.on('connect', () => {
+        console.log(`Socket connected: ${socket.id}`);
+        addDebug(`Socket connected: ${socket.id}`);
         setConnected(true);
         
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         const token = localStorage.getItem('token') || '';
         const lichessId = (user as any).lichessId || localStorage.getItem('lichessId') || '';
         
-        // הצטרף לחדר הטורניר אחרי התחברות מוצלחת
-        console.log(`🔄 Joining tournament room: ${tournamentId}, lichessId: ${lichessId}`);
-        addDebug(`Joining tournament room: ${tournamentId}`);
-        socketRef.current?.emit('join_tournament', { 
+        socket.emit('join_tournament', { 
           tournamentId, 
           token,
           lichessId
         });
-        console.log("📤 join_tournament event emitted");
       });
       
-      // Connection error event
-      socketRef.current.on('connect_error', (error) => {
-        console.error(`❌ Socket connection error:`, error);
+      socket.on('connect_error', (error) => {
+        console.error(`Socket connection error:`, error);
         addDebug(`Socket connection error: ${error.message}`);
         setError(`Socket connection error: ${error.message}`);
         setConnected(false);
       });
       
-      // Disconnect event
-      socketRef.current.on('disconnect', () => {
-        console.warn(`⚠️ Socket disconnected`);
+      socket.on('disconnect', () => {
+        console.warn(`Socket disconnected`);
         addDebug(`Socket disconnected`);
         setConnected(false);
       });
       
-      // Socket error event
-      socketRef.current.on('error', (data: { message: string }) => {
-        console.error(`❌ Socket error:`, data);
-        addDebug(`Socket error: ${data.message}`);
-        setError(data.message);
+      socket.on('join_success', (data) => {
+        console.log(`Successfully joined tournament room:`, data);
+        addDebug(`Successfully joined tournament room`);
       });
       
-      // Join success event
-      socketRef.current.on('join_success', (data: { tournamentId: string, userId: string }) => {
-        console.log(`✅ Successfully joined tournament room:`, data);
-        addDebug(`Successfully joined tournament room as: ${data.userId}`);
-      });
-      
-      // Chat history event
-      socketRef.current.on('chat_history', (history: ChatMessage[]) => {
-        console.log(`📜 Received chat history: ${history?.length || 0} messages`);
+      socket.on('chat_history', (history: ChatMessage[]) => {
         addDebug(`Received chat history: ${history?.length || 0} messages`);
         setMessages(history || []);
       });
       
-      // New message event
-      socketRef.current.on('new_message', (message: ChatMessage) => {
-        console.log(`💬 New chat message:`, message);
-        addDebug(`New chat message from ${message.username}: ${message.message.substring(0, 20)}...`);
+      socket.on('new_message', (message: ChatMessage) => {
+        addDebug(`New chat message from ${message.username}`);
         setMessages(prev => [...prev, message]);
       });
       
-      // Tournament matches event
-      socketRef.current.on('tournament_matches', (updatedMatches: Match[]) => {
-        console.log(`🎮 Received tournament matches update: ${updatedMatches.length} matches`);
-        console.log("🎮 Updated matches:", updatedMatches);
+      socket.on('tournament_matches', (updatedMatches: Match[]) => {
         addDebug(`Received tournament matches update: ${updatedMatches.length} matches`);
         
-        // Ensure all match URLs are properly formatted
         const processedMatches = updatedMatches.map((match: Match) => {
-          // Make sure lichessUrl is properly formed
-          if (match.lichessUrl && !match.lichessUrl.startsWith('http')) {
-            match.lichessUrl = `https://lichess.org/${match.gameId}`;
-          }
-          return match;
+          const gameId = match.lichessUrl.split('/').pop()?.split('?')[0] || '';
+          return {
+            ...match,
+            gameId
+          };
         });
         
         setMatches(processedMatches);
         
-        // עדכן את המשחק הנבחר אם הוא בין המשחקים המעודכנים
         if (selectedMatch) {
-          console.log(`🔍 Looking for selected match (${selectedMatch.gameId}) in updated matches...`);
           const updated = processedMatches.find(m => 
             m.gameId === selectedMatch.gameId
           );
           
           if (updated) {
-            console.log(`✅ Found selected match in updates: ${selectedMatch.gameId}`);
-            addDebug(`Updating selected match: ${selectedMatch.gameId}`);
-            console.log("📊 Updated match data:", updated);
             setSelectedMatch(updated);
           } else if (processedMatches.length > 0) {
-            console.log(`⚠️ Selected match not found in updates, selecting first match`);
-            addDebug(`Selected match not found in updates, selecting first match`);
             setSelectedMatch(processedMatches[0]);
           }
         }
       });
       
-      // Game state change event
-      socketRef.current.on('game_state_change', (data: { gameId: string, state: any }) => {
-        console.log(`🎲 Game state changed for: ${data.gameId}`, data.state);
-        addDebug(`Game state changed for: ${data.gameId}, status: ${data.state.status}`);
-        
-        if (selectedMatch && data.gameId === selectedMatch.gameId) {
-          console.log(`🔄 Updating state for selected match ${selectedMatch.gameId}`);
-          console.log("Before update:", selectedMatch);
-          setSelectedMatch(prev => {
-            const updated = prev ? {
-              ...prev,
-              state: data.state
-            } : null;
-            console.log("After update:", updated);
-            return updated;
-          });
-        } else {
-          console.log(`ℹ️ Game state update is not for selected match, ignoring...`);
-        }
-      });
-      
-      // Viewers count event
-      socketRef.current.on('viewers_count', (data: { count: number }) => {
-        console.log(`👁️ Viewers count update: ${data.count}`);
+      socket.on('viewers_count', (data: { count: number }) => {
         addDebug(`Viewers count update: ${data.count}`);
         setViewers(data.count);
       });
-      
-      console.log("✅ Socket.IO event handlers setup complete");
-    } else {
-      console.error("❌ Socket.IO instance not created, cannot set up event handlers");
     }
     
-    // פונקציית ניקוי
     return () => {
-      if (socketRef.current) {
-        console.log("🧹 Cleaning up socket connection");
-        addDebug(`Cleaning up socket connection`);
-        socketRef.current.disconnect();
+      // Safer cleanup
+      try {
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+        }
+      } catch (error) {
+        console.warn('Error disconnecting socket:', error);
+      }
+      
+      try {
+        if (gameStreamRef.current) {
+          gameStreamRef.current.close();
+        }
+      } catch (error) {
+        console.warn('Error closing game stream:', error);
       }
     };
   }, [tournamentId]);
-  
-  // כאשר משחק נבחר, צפה בו
+
+  // Stream selected match
   useEffect(() => {
-    console.log("🔄 Selected match effect triggered:", selectedMatch?.gameId);
+    if (selectedMatch && selectedMatch.gameId && connected) {
+      addDebug(`Starting to stream match: ${selectedMatch.gameId}`);
+      streamGame(selectedMatch.gameId);
+      
+      // Also notify socket about watching this match
+      if (socketRef.current) {
+        socketRef.current.emit('watch_match', {
+          gameId: selectedMatch.gameId,
+          tournamentId
+        });
+      }
+    }
     
-    if (selectedMatch && socketRef.current && tournamentId && connected) {
-      console.log(`👁️ Watching match: ${selectedMatch.gameId}`);
-      addDebug(`Watching match: ${selectedMatch.gameId}`);
-      
-      console.log("📤 Emitting watch_match event:", {
-        gameId: selectedMatch.gameId,
-        tournamentId
-      });
-      
-      socketRef.current.emit('watch_match', {
-        gameId: selectedMatch.gameId,
-        tournamentId
-      });
-      
-      // גישה חדשה - ריענון מלא של ה-iframe כל שנייה
-      if (iframeRef.current) {
-        // שימוש בפרמטר tv=1 שמיועד לצפייה חיה
-        const liveUrl = `https://lichess.org/embed/${selectedMatch.gameId}?theme=auto&bg=auto&tv=1`;
-        console.log(`🌐 Setting iframe src with TV parameter: ${liveUrl}`);
-        addDebug(`Setting iframe src with TV parameter: ${liveUrl}`);
-        iframeRef.current.src = liveUrl;
-        
-        // הגדר טיימר לרענון האייפריים כל 3 שניות
-        const refreshTimer = setInterval(() => {
-          if (iframeRef.current) {
-            console.log("🔄 Refreshing iframe...");
-            // שמירה על אותה URL אבל הוספת טיימסטמפ כדי לכפות רענון
-            iframeRef.current.src = `${liveUrl}&t=${Date.now()}`;
-          }
-        }, 3000);
-        
-        // נקה את הטיימר כשהקומפוננטה מתפרקת או כשבוחרים משחק אחר
-        return () => {
-          console.log("🧹 Cleaning up refresh timer");
-          clearInterval(refreshTimer);
-        };
-      } else {
-        console.warn("⚠️ iframe reference is null, cannot update src");
-      }
-    } else {
-      console.log(`ℹ️ Not watching any match:`, {
-        selectedMatch: selectedMatch ? `gameId: ${selectedMatch.gameId}` : 'null',
-        socketConnected: connected,
-        tournamentId
-      });
-    }
-  }, [selectedMatch?.gameId, tournamentId, connected]);
-  
-  // Function to manually check iframe status - used in debugging UI
-  const checkIframeStatus = () => {
-    if (iframeRef.current) {
-      console.log("🔍 Current iframe details:");
-      console.log("  - src:", iframeRef.current.src);
-      console.log("  - contentWindow:", iframeRef.current.contentWindow ? "available" : "not available");
-      console.log("  - contentDocument:", iframeRef.current.contentDocument ? "available" : "not available");
-      
-      addDebug(`Iframe check - src: ${iframeRef.current.src}`);
-      
-      // Try to check if embedded content has loaded
+    return () => {
+      // Safer cleanup
       try {
-        if (iframeRef.current.contentDocument) {
-          console.log("  - Document loaded:", iframeRef.current.contentDocument.readyState);
+        if (gameStreamRef.current) {
+          gameStreamRef.current.close();
+          gameStreamRef.current = null;
         }
-      } catch (e) {
-        console.log("  - Cannot access contentDocument (cross-origin restriction)");
+      } catch (error) {
+        console.warn('Error closing game stream:', error);
       }
-    } else {
-      console.log("❌ iframe reference is null");
+    };
+  }, [selectedMatch?.gameId, connected, tournamentId]);
+
+  // Auto-scroll chat
+  useEffect(() => {
+    try {
+      if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      }
+    } catch (error) {
+      console.warn('Error scrolling chat:', error);
     }
-  };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewMessage(e.target.value);
-  };
-  
-  // מצא שם שחקן לפי מזהה Lichess
+  }, [messages]);
+
+  // Utility functions
   const getPlayerName = (lichessId: string): string => {
     const player = players.find(p => p.lichessId === lichessId);
     return player ? player.username : lichessId;
   };
   
-  // טיפול בבחירת משחק
   const handleSelectMatch = (match: Match) => {
-    console.log(`🎮 Match selected:`, match);
     addDebug(`Match selected: ${match.gameId}`);
     setSelectedMatch(match);
   };
   
-  // טיפול בשליחת הודעה בצ'אט
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newMessage.trim()) {
-      console.log("❌ Cannot send empty message");
-      addDebug(`Cannot send empty message`);
-      return;
-    }
+    if (!newMessage.trim() || !socketRef.current) return;
     
-    console.log(`💬 Sending chat message: ${newMessage}`);
-    addDebug(`Sending chat message: ${newMessage}`);
-    
-    // השג את הטוקן מה-localStorage
     const token = localStorage.getItem('token');
     
-    if (socketRef.current) {
-      console.log("📤 Emitting send_message event");
-      socketRef.current.emit('send_message', {
-        message: newMessage.trim(),
-        tournamentId: tournamentId || '',
-        token
-      }, (response: any) => {
-        // Acknowledgement callback
-        console.log("📨 Message send acknowledgement:", response);
-        if (response && response.success) {
-          console.log("✅ Message sent successfully");
-          addDebug(`Message sent successfully`);
-        }
-      });
-      
-      setNewMessage('');
-    } else {
-      console.error("❌ Cannot send message: Socket not connected");
-      addDebug(`Cannot send message: Socket not connected`);
-    }
+    socketRef.current.emit('send_message', {
+      message: newMessage.trim(),
+      tournamentId: tournamentId || '',
+      token
+    });
+    
+    setNewMessage('');
   };
   
-  // Function to attempt reconnection
   const reconnectSocket = () => {
-    console.log("🔄 Attempting to reconnect socket...");
-    addDebug(`Attempting to reconnect socket...`);
+    addDebug(`Attempting to reconnect socket`);
     if (socketRef.current) {
       socketRef.current.connect();
-    } else {
-      console.error("❌ Socket instance is null, cannot reconnect");
     }
   };
   
-  // Function to open the game in a new tab
   const openGameInNewTab = () => {
     if (selectedMatch && selectedMatch.lichessUrl) {
       window.open(selectedMatch.lichessUrl, '_blank');
     }
   };
 
+  // Render
   if (loading) {
-    return <div className="loading">טוען נתוני טורניר...</div>;
+    return <div className="loading">Loading tournament data...</div>;
   }
   
   if (error) {
     return (
       <div className="error">
-        <h3>שגיאה</h3>
+        <h3>Error</h3>
         <p>{error}</p>
         <button onClick={reconnectSocket} className="reconnect-button">
-          נסה להתחבר מחדש
+          Try to reconnect
         </button>
         <details>
           <summary>Debug Info</summary>
@@ -524,193 +636,234 @@ const TournamentLiveStream: React.FC = () => {
   }
   
   if (!tournament) {
-    return <div className="not-found">הטורניר לא נמצא</div>;
+    return <div className="not-found">Tournament not found</div>;
   }
 
-  return (
-    <div className="tournament-stream-container">
-      <div className="tournament-header">
-        <h1>{tournament.name}</h1>
-        <div className="tournament-info">
-          <p>שלב: {tournament.bracketName}</p>
-          <p>פרס: ₪{tournament.prize}</p>
-          <p>סטטוס: {tournament.status === 'active' ? 'פעיל' : 'הושלם'}</p>
-          <div className="connection-indicator">
-            {connected ? (
-              <span className="status-connected">✓ מחובר</span>
-            ) : (
-              <span className="status-disconnected">✗ מנותק</span>
-            )}
-            {!connected && (
-              <button onClick={reconnectSocket} className="reconnect-button">התחבר מחדש</button>
-            )}
+  // Wrap everything in a try-catch to prevent crashes
+  try {
+    return (
+      <div className="tournament-stream-container">
+        <div className="tournament-header">
+          <h1>{tournament.name}</h1>
+          <div className="tournament-info">
+            <p>Stage: {tournament.bracketName}</p>
+            <p>Prize: ₪{tournament.prize}</p>
+            <p>Status: {tournament.status === 'active' ? 'Active' : 'Completed'}</p>
+            <div className="connection-indicator">
+              {connected ? (
+                <span className="status-connected">✓ Connected</span>
+              ) : (
+                <span className="status-disconnected">✗ Disconnected</span>
+              )}
+              {!connected && (
+                <button onClick={reconnectSocket} className="reconnect-button">Reconnect</button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-      
-      <div className="stream-content">
-        {/* רשימת משחקים */}
-        <div className="matches-panel">
-          <h2>משחקים נוכחיים</h2>
-          <ul className="match-list">
-            {matches.length > 0 ? (
-              matches.map(match => (
-                <li 
-                  key={match.gameId} 
-                  className={`match-item ${selectedMatch?.gameId === match.gameId ? 'selected' : ''} ${match.result !== 'pending' ? 'finished' : ''}`}
-                  onClick={() => handleSelectMatch(match)}
-                >
-                  <div className="players">
-                    <span>{getPlayerName(match.player1)}</span> נגד <span>{getPlayerName(match.player2)}</span>
+        
+        <div className="stream-content">
+          {/* Matches Panel */}
+          <div className="matches-panel">
+            <h2>Current Games</h2>
+            <ul className="match-list">
+              {matches.length > 0 ? (
+                matches.map(match => (
+                  <li 
+                    key={match.gameId} 
+                    className={`match-item ${selectedMatch?.gameId === match.gameId ? 'selected' : ''} ${match.result !== 'pending' ? 'finished' : ''}`}
+                    onClick={() => handleSelectMatch(match)}
+                  >
+                    <div className="players" style={{ color: 'black' }}>
+                      <span>{getPlayerName(match.player1)}</span> vs <span>{getPlayerName(match.player2)}</span>
+                    </div>
+                    {match.result !== 'pending' && (
+                      <div className="result" style={{ color: 'black' }}>
+                        {match.result === 'draw' ? 'Draw' : `Winner: ${match.winner ? getPlayerName(match.winner) : ''}`}
+                      </div>
+                    )}
+                  </li>
+                ))
+              ) : (
+                <li className="no-matches">No active games</li>
+              )}
+            </ul>
+          </div>
+          
+          {/* Game Panel */}
+          <div className="game-panel">
+            {selectedMatch ? (
+              <>
+                <div className="game-header">
+                  <h2 style={{ color: 'black', marginBottom: '15px' }}>
+                    {getPlayerName(selectedMatch.player1)} vs {getPlayerName(selectedMatch.player2)}
+                  </h2>
+                  <div className="game-controls" style={{ 
+                    color: 'black', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '15px', 
+                    justifyContent: 'center',
+                    flexWrap: 'wrap'
+                  }}>
+                    <span className="viewers" style={{ fontSize: '14px' }}>
+                      👥 {viewers} viewers
+                    </span>
+                    <button 
+                      onClick={openGameInNewTab} 
+                      className="open-button"
+                      style={{
+                        padding: '8px 15px',
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Open in Lichess
+                    </button>
+                    <span className="live-indicator" style={{ 
+                      fontSize: '14px',
+                      fontWeight: 'bold',
+                      color: '#dc3545'
+                    }}>
+                      🔴 Live Stream
+                    </span>
                   </div>
-                  {match.result !== 'pending' && (
-                    <div className="result">
-                      {match.result === 'draw' ? 'תיקו' : `מנצח: ${match.winner ? getPlayerName(match.winner) : ''}`}
+                </div>
+                
+                {/* Live Chess Board */}
+                <div className="game-board-container">
+                  <div style={{ textAlign: 'center', padding: '20px' }}>
+                    {renderChessBoard()}
+                  </div>
+                  
+                  {/* Game Info */}
+                  {gameState && (
+                    <div className="game-info">
+                      <div className="game-status">
+                        <strong>Status:</strong> {gameState.status}
+                        {gameState.winner && (
+                          <span className="winner"> - Winner: {gameState.winner}</span>
+                        )}
+                      </div>
+                      
+                      {gameState.wtime !== undefined && gameState.btime !== undefined && (
+                        <div className="clocks">
+                          <div className="clock white">
+                            ⚪ {getDisplayTime(gameState.wtime, true)}
+                          </div>
+                          <div className="clock black">
+                            ⚫ {getDisplayTime(gameState.btime, false)}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
-                </li>
-              ))
-            ) : (
-              <li className="no-matches">אין משחקים פעילים</li>
-            )}
-          </ul>
-        </div>
-        
-        {/* הצגת המשחק */}
-        <div className="game-panel">
-          {selectedMatch ? (
-            <>
-              <div className="game-header">
-                <h2>{getPlayerName(selectedMatch.player1)} נגד {getPlayerName(selectedMatch.player2)}</h2>
-                <div className="game-controls">
-                  <span className="viewers">{viewers} צופים</span>
-                  <button onClick={openGameInNewTab} className="open-button">
-                    פתח במשחק מלא
-                  </button>
-                  <button onClick={checkIframeStatus} className="debug-button">
-                    בדוק iframe
-                  </button>
-                  <span className="live-indicator">🔴 שידור חי</span>
                 </div>
-              </div>
-              <div className="game-iframe-container">
-                {/* Lichess iframe - CORRECT URL FORMAT FOR LIVE EMBED */}
-                <iframe
-                  ref={iframeRef}
-                  id="lichess-iframe"
-                  title="Lichess Live Game"
-                  src=""
-                  width="100%"
-                  height="500"
-                  allowTransparency={true}
-                  frameBorder="0"
-                  allow="fullscreen"
-                  onLoad={() => {
-                    console.log(`🔄 Iframe loaded for game: ${selectedMatch.gameId}`);
-                    console.log(`🌐 Current iframe src: ${iframeRef.current?.src}`);
-                    addDebug(`Iframe loaded for game: ${selectedMatch.gameId}`);
-                  }}
-                ></iframe>
-              </div>
-              <div className="game-footer">
-                <div>
-                  <strong>Game ID: </strong>{selectedMatch.gameId}
-                </div>
-                <div>
-                  <strong>Lichess URL: </strong>
-                  <a href={selectedMatch.lichessUrl} target="_blank" rel="noopener noreferrer">
-                    {selectedMatch.lichessUrl}
-                  </a>
-                </div>
-                {selectedMatch.result !== 'pending' && (
-                  <div className="game-result">
-                    {selectedMatch.result === 'draw' 
-                      ? 'המשחק הסתיים בתיקו' 
-                      : `${selectedMatch.winner ? getPlayerName(selectedMatch.winner) : ''} ניצח ב${translateResult(selectedMatch.result)}`}
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="no-game-selected">
-              <p>בחר משחק לצפייה</p>
-            </div>
-          )}
-        </div>
-        
-        {/* צ'אט */}
-        <div className="chat-panel">
-          <h2>צ'אט חי</h2>
-          <div 
-            className="chat-messages" 
-            ref={chatContainerRef}
-          >
-            {messages.length > 0 ? (
-              messages.map((msg, index) => (
-                <div key={index} className="chat-message">
-                  <div className="message-header">
-                    <span className="username">{getPlayerName(msg.lichessId)}</span>
-                    <span className="timestamp">
-                      {new Date(msg.timestamp).toLocaleTimeString()}
-                    </span>
+                
+                <div className="game-footer">
+                  {selectedMatch.result !== 'pending' && (
+                    <div className="game-result">
+                      {selectedMatch.result === 'draw' 
+                        ? 'Game ended in a draw' 
+                        : `Winner: ${selectedMatch.winner ? getPlayerName(selectedMatch.winner) : ''}`}
                     </div>
-                  <div className="message-content">{msg.message}</div>
+                  )}
                 </div>
-              ))
+              </>
             ) : (
-              <div className="no-messages">אין הודעות עדיין</div>
+              <div className="no-game-selected">
+                <p>Select a game to watch</p>
+              </div>
             )}
           </div>
           
-          <form className="chat-form" onSubmit={handleSendMessage}>
-            <input
-              type="text"
-              value={newMessage}
-              onChange={handleInputChange}
-              placeholder="הקלד הודעה כאן..." 
-              disabled={!connected}
-              dir="auto"
-              autoComplete="off"
-              className="chat-input"
-              style={{ 
-                pointerEvents: 'auto', 
-                userSelect: 'auto',
-                direction: 'ltr', // Set text direction explicitly
-                textAlign: 'left' // Align text explicitly
-              }}
-            />
-            <button 
-              type="submit" 
-              disabled={!connected || !newMessage.trim()}
-              className={!connected || !newMessage.trim() ? 'disabled' : ''}
+          {/* Chat Panel */}
+          <div className="chat-panel">
+            <h2>Live Chat</h2>
+            <div 
+              className="chat-messages" 
+              ref={chatContainerRef}
             >
-              שלח
-            </button>
-          </form>
-          
-          <div className="connection-status">
-            {connected ? (
-              <span className="status-connected">מחובר</span>
-            ) : (
-              <span className="status-disconnected">מנותק</span>
-            )}
+              {messages.length > 0 ? (
+                messages.map((msg, index) => (
+                  <div key={index} className="chat-message">
+                    <div className="message-header">
+                      <span className="username">{getPlayerName(msg.lichessId)}</span>
+                      <span className="timestamp">
+                        {new Date(msg.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <div className="message-content">{msg.message}</div>
+                  </div>
+                ))
+              ) : (
+                <div className="no-messages">No messages yet</div>
+              )}
+            </div>
+            
+            <form className="chat-form" onSubmit={handleSendMessage}>
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type a message..." 
+                disabled={!connected}
+                className="chat-input"
+              />
+              <button 
+                type="submit" 
+                disabled={!connected || !newMessage.trim()}
+                className={!connected || !newMessage.trim() ? 'disabled' : ''}
+              >
+                Send
+              </button>
+            </form>
+            
+            <div className="connection-status">
+              {connected ? (
+                <span className="status-connected">Connected</span>
+              ) : (
+                <span className="status-disconnected">Disconnected</span>
+              )}
+            </div>
           </div>
         </div>
+        
+        {/* Debug Panel */}
+        {debug.length > 0 && (
+          <details className="debug-panel">
+            <summary>Debug Info ({debug.length} entries)</summary>
+            <pre className="debug-content">
+              {debug.slice(-20).join('\n')}
+            </pre>
+          </details>
+        )}
       </div>
-    </div>
-  );
+    );
+  } catch (renderError) {
+    console.error('Render error:', renderError);
+    return (
+      <div className="error">
+        <h3>Display Error</h3>
+        <p>An error occurred while displaying the component</p>
+        <details>
+          <summary>Error Details</summary>
+          <pre>{String(renderError)}</pre>
+        </details>
+        <button onClick={() => window.location.reload()}>Refresh Page</button>
+      </div>
+    );
+  }
 };
 
-// פונקציית עזר לתרגום סטטוס התוצאה לעברית
-function translateResult(result: string): string {
-  switch (result) {
-    case 'mate': return 'מט';
-    case 'resign': return 'כניעה';
-    case 'timeout': return 'הזמן נגמר';
-    case 'draw': return 'תיקו';
-    case 'completed': return 'הושלם';
-    case 'finished': return 'הסתיים';
-    default: return result;
+// Add type declaration for window globals
+declare global {
+  interface Window {
+    // We don't need these anymore since we're using a simple CSS board
   }
 }
 

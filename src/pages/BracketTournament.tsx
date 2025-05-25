@@ -167,7 +167,6 @@ export default function BracketTournament() {
     };
   }, []);
 
-  // פונקציה לבדיקת רמאות במשחק
   
   // const checkCheating = async (match: Match) => {
   //   if (!lichessId || !match.lichessUrl) return;
@@ -615,17 +614,17 @@ export default function BracketTournament() {
     </div>
   )}
   
-  {isCreator && tournament.status === "active" && (
-    <div className="mt-4">
-      <Button 
-        onClick={forceAdvanceTournament}
-        className="bg-chess-secondary hover:bg-blue-700 text-white"
-      >
-        <ArrowRightCircle className="mr-2 h-4 w-4" />
-        Force Advance to Next Round
-      </Button>
-    </div>
-  )}
+  {false && (
+  <div className="mt-4">
+    <Button 
+      onClick={forceAdvanceTournament}
+      className="bg-chess-secondary hover:bg-blue-700 text-white"
+    >
+      <ArrowRightCircle className="mr-2 h-4 w-4" />
+      Force Advance to Next Round
+    </Button>
+  </div>
+)}
 </div>
         
         <div className="overflow-x-auto pb-8">
