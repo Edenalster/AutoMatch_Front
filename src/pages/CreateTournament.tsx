@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Trophy, Users, Globe, Lock, Award } from "lucide-react";
+import { Trophy, Users, Globe, Lock, Award, AlertCircle } from "lucide-react"; // <<< הוספנו אייקון התראה
 import {
   Form,
   FormControl,
@@ -51,16 +51,19 @@ const CreateTournament = () => {
     max: number;
   } | null>(null);
 
-  const [prizePool, setPrizePool] = useState<number>(80); // Default based on default values
+  const [prizePool, setPrizePool] = useState<number>(80);
+
+  // <<< הוספה: State חדש לשמירת יתרת המשתמש והודעות שגיאה
+  const [balance, setBalance] = useState<number | null>(null);
+  const [balanceError, setBalanceError] = useState<string>("");
 
   // Watch form values to update prize pool
   const maxPlayers = form.watch("maxPlayers");
   const entryFee = form.watch("entryFee");
 
-  // Update prize pool whenever maxPlayers or entryFee changes
   useEffect(() => {
-    const players = parseInt(maxPlayers);
-    const fee = parseInt(entryFee);
+    const players = parseInt(maxPlayers) || 0;
+    const fee = parseInt(entryFee) || 0;
     setPrizePool(players * fee);
   }, [maxPlayers, entryFee]);
 
@@ -68,48 +71,85 @@ const CreateTournament = () => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
   const handleClick = () => {
-    navigate("/"); // Navigate to the tournaments page
+    navigate("/");
   };
 
   useEffect(() => {
-    const fetchUserRank = async () => {
-      const lichessId = localStorage.getItem("lichessId");
-      if (!lichessId) return;
+    const lichessId = localStorage.getItem("lichessId");
+    if (!lichessId) return;
 
+    // פונקציה לשליפת דירוג המשתמש
+    const fetchUserRank = async () => {
       try {
         const res = await fetch(`https://lichess.org/api/user/${lichessId}`);
         const data = await res.json();
         const blitzRating = data?.perfs?.blitz?.rating ?? 1500;
 
-        // Determine rank range
-        let rank: { label: string; min: number; max: number } = {
-          label: "Beginner",
-          min: 0,
-          max: 1200,
-        };
+        let rank: { label: string; min: number; max: number };
 
-        if (blitzRating >= 1200 && blitzRating < 1400) {
-          rank = { label: "Intermediate", min: 1200, max: 1400 };
-        } else if (blitzRating >= 1400 && blitzRating < 1700) {
-          rank = { label: "Pro", min: 1400, max: 1700 };
-        } else if (blitzRating >= 1700) {
-          rank = { label: "Elite", min: 1700, max: 2200 };
+        if (blitzRating < 1200) {
+          rank = { label: "Beginner", min: 0, max: 1199 };
+        } else if (blitzRating < 1600) {
+          rank = { label: "Intermediate", min: 1200, max: 1599 };
+        } else if (blitzRating < 1800) {
+          rank = { label: "Advanced", min: 1600, max: 1799 };
+        } else if (blitzRating < 2000) {
+          rank = { label: "Pro", min: 1800, max: 1999 };
+        } else {
+          rank = { label: "Elite", min: 2000, max: 3000 };
         }
-
         setRankRange(rank);
       } catch (err) {
         console.error("Failed to fetch Lichess rating", err);
       }
     };
+    
+    // <<< הוספה: פונקציה לשליפת יתרת המשתמש
+    const fetchUserBalance = async () => {
+        const token = localStorage.getItem("token");
+        const userId = localStorage.getItem("userId");
+        if (!userId || !token) {
+            setBalance(0); // אם אין משתמש מחובר, היתרה היא 0
+            return;
+        }
+        try {
+            // נניח שיש לך נקודת קצה כזו שמחזירה את פרטי המשתמש כולל היתרה
+            const res = await axios.get(`${backendUrl}/auth/users/${userId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setBalance(res.data.balance || 0);
+        } catch (err) {
+            console.error("Failed to fetch user balance", err);
+            setBalance(0); // במקרה של שגיאה, נניח שהיתרה 0
+        }
+    };
 
     document.title = "Create Tournament - AutoMatch";
-    fetchUserRank(); // ✅ call it here
+    fetchUserRank();
+    fetchUserBalance(); // <<< הוספה: קריאה לפונקציה החדשה
   }, []);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    const fee = parseInt(values.entryFee);
+
+    // <<< הוספה: בדיקת יתרה לפני השליחה
+    // הבדיקה רלוונטית רק אם דמי הכניסה גדולים מ-0
+    if (fee > 0) {
+        if (balance === null) {
+            setBalanceError("Checking balance, please wait...");
+            return; // מונע שליחה אם היתרה עדיין נטענת
+        }
+        if (balance < fee) {
+            setBalanceError(`Insufficient funds. You need $${fee} but only have $${balance}. Please add funds to your account.`);
+            return; // מונע שליחה אם אין מספיק כסף
+        }
+    }
+    
+    // אם הגענו לכאן, הטורניר חינמי או שיש מספיק כסף. נאפס את השגיאה.
+    setBalanceError("");
+
     try {
-      const userId = localStorage.getItem("userId");      // ← changed
-      console.log("userId", userId);
+      const userId = localStorage.getItem("userId");
       const lichessId = localStorage.getItem("lichessId");
       const token = localStorage.getItem("token");
       const response = await axios.post(
@@ -119,63 +159,44 @@ const CreateTournament = () => {
           playerIds: [lichessId || "placeholderUser"],
           maxPlayers: parseInt(values.maxPlayers),
           tournamentName: values.tournamentName,
-          entryFee: parseInt(values.entryFee),
-          visibility: values.visibility
+          entryFee: fee,
+          visibility: values.visibility,
+          rankRange: rankRange // שליחת טווח הדירוג לבאקאנד
         },
         {
           headers: {
-            Authorization: `Bearer ${token}`, // ✅ Token from login
+            Authorization: `Bearer ${token}`,
           },
-          withCredentials: true, // ✅ Important if your backend sets cookies/session
+          withCredentials: true,
         }
       );
 
-      const tournamentId = response.data.tournament._id; // Get the tournamentId
-      const lichessGameUrl = response.data.games?.[0];
-      setRankRange(response.data.rankRange);
-      console.log("🎯 Rank range received:", response.data.rankRange);
-
-      // Give UI time to render rankRange before navigating away
-      // ✅ Correct
-      setTimeout(() => {
-        const lichessGameUrl = response.data.games?.[0];
-        if (lichessGameUrl) {
-          navigate(`/chessboard?gameUrl=${encodeURIComponent(lichessGameUrl)}`);
-        } else {
-          navigate(`/lobby/${tournamentId}`);
-        }
-      }, 1500);
-
-      // Store the tournamentId in localStorage
+      const tournamentId = response.data.tournament._id;
       localStorage.setItem("tournamentId", tournamentId);
 
-      if (lichessGameUrl) {
-        navigate(`/chessboard?gameUrl=${encodeURIComponent(lichessGameUrl)}`);
-      } else {
-        navigate(`/lobby/${tournamentId}`);
-      }
+      // ניווט ללובי לאחר יצירת הטורניר
+      navigate(`/lobby/${tournamentId}`);
+
     } catch (err) {
       console.error("Failed to create tournament", err);
+      // <<< הוספה: הצגת שגיאה כללית אם יצירת הטורניר נכשלה
+      setBalanceError("Failed to create tournament. Please try again later.");
     }
   };
 
   return (
     <div className="min-h-screen bg-background">
-          {/* Background wrapper - this needs to be fixed position to cover the entire screen */}
-          <div className="fixed inset-0 w-full h-full z-0">
-        {/* Gradient background */}
+      <div className="fixed inset-0 w-full h-full z-0">
         <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90"></div>
-        {/* Chess board pattern overlay */}
         <div className="absolute inset-0 w-full h-full chess-board-bg opacity-15"></div>
       </div>
 
-      {/* Decorative blurred elements */}
       <div className="absolute top-20 left-10 w-64 h-64 bg-chess-gold/10 rounded-full filter blur-3xl animate-pulse-soft"></div>
       <div className="absolute bottom-20 right-10 w-72 h-72 bg-chess-secondary/10 rounded-full filter blur-3xl animate-pulse-soft"></div>
 
       <Navbar showItems={false} />
 
-      <div className="container mx-auto px-6 pt-20">
+      <div className="container mx-auto px-6 pt-20 pb-12"> {/* הוספנו pb-12 */}
         <div className="max-w-2xl mx-auto">
           <div className="space-y-2 text-center mb-8">
             <h1 className="text-4xl font-bold text-white drop-shadow-lg">
@@ -192,6 +213,7 @@ const CreateTournament = () => {
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-6"
               >
+                {/* ... שדות הטופס נשארים ללא שינוי ... */}
                 <FormField
                   control={form.control}
                   name="tournamentName"
@@ -268,11 +290,6 @@ const CreateTournament = () => {
                                   <span>Private - invite only</span>
                                 </>
                               )}
-                              {!field.value && (
-                                <span className="text-muted-foreground">
-                                  Select visibility
-                                </span>
-                              )}
                             </div>
                           </SelectTrigger>
                           <SelectContent>
@@ -301,7 +318,7 @@ const CreateTournament = () => {
                   name="entryFee"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Entry Fee (USD)</FormLabel>
+                      <FormLabel>Entry Fee (USD) - Current Balance: ${balance !== null ? balance : 'Loading...'}</FormLabel>
                       <FormControl>
                         <div className="space-y-3">
                           <Slider
@@ -324,15 +341,19 @@ const CreateTournament = () => {
                   )}
                 />
 
-                {/* New Prize Pool Display */}
                 <div className="bg-chess-dark/60 backdrop-blur-lg rounded-lg border border-chess-gold/30 p-4 shadow-lg">
                   <div className="flex items-center justify-center gap-3">
                     <Award className="h-6 w-6 text-chess-gold" />
-                    <span className="text-xl font-bold text-white">Prize Pool:</span>
-                    <span className="text-2xl font-bold text-chess-gold">${prizePool}</span>
+                    <span className="text-xl font-bold text-white">
+                      Prize Pool:
+                    </span>
+                    <span className="text-2xl font-bold text-chess-gold">
+                      ${prizePool}
+                    </span>
                   </div>
                   <p className="text-white/70 text-center text-sm mt-2">
-                    {parseInt(maxPlayers)} players × ${parseInt(entryFee)} entry fee
+                    {parseInt(maxPlayers) || 0} players × ${parseInt(entryFee) || 0} entry
+                    fee
                   </p>
                 </div>
 
@@ -345,16 +366,30 @@ const CreateTournament = () => {
                   </div>
                 )}
 
+                {/* <<< הוספה: הצגת הודעת השגיאה של היתרה */}
+                {balanceError && (
+                    <div className="bg-red-500/10 border border-red-500/50 text-red-300 text-sm rounded-md p-3 flex items-center gap-3">
+                        <AlertCircle className="h-5 w-5" />
+                        <span>{balanceError}</span>
+                    </div>
+                )}
+
                 <div className="flex flex-row gap-10">
                   <Button
                     onClick={handleClick}
+                    type="button" // חשוב למנוע שליחת טופס
                     className="w-full secondary-btn py-6 bg-blue-900 text-white hover:bg-blue-700"
                   >
                     Cancel
                   </Button>
 
-                  <Button type="submit" className="primary-btn w-full py-6">
-                    Create Tournament
+                  <Button 
+                    type="submit" 
+                    className="primary-btn w-full py-6"
+                    // <<< הוספה: מנטרל את הכפתור בזמן טעינת היתרה
+                    disabled={balance === null} 
+                  >
+                    {balance === null ? "Loading..." : "Create Tournament"}
                   </Button>
                 </div>
               </form>

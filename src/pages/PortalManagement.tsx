@@ -18,7 +18,7 @@ import {
   LayoutDashboard,
   Users,
   Calendar,
-  SettingsIcon,
+  // SettingsIcon,
   CreditCard,
 } from "lucide-react";
 import Navbar from "../components/Navbar";
@@ -153,7 +153,7 @@ const PortalManagement = () => {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Settings">
+                    {/* <SidebarMenuButton asChild tooltip="Settings">
                       <a
                         href="/portal/settings"
                         className="flex items-center gap-3"
@@ -161,7 +161,7 @@ const PortalManagement = () => {
                         <SettingsIcon size={18} />
                         <span>Settings</span>
                       </a>
-                    </SidebarMenuButton>
+                    </SidebarMenuButton> */}
                   </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarContent>

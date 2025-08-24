@@ -50,8 +50,8 @@ const FindMatch = () => {
   return (
     <div className="min-h-screen bg-chess-dark">
       <Navbar showItems={false} />
-           {/* Background wrapper - this needs to be fixed position to cover the entire screen */}
-           <div className="fixed inset-0 w-full h-full z-0">
+      {/* Background wrapper - this needs to be fixed position to cover the entire screen */}
+      <div className="fixed inset-0 w-full h-full z-0">
         {/* Gradient background */}
         <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90"></div>
         {/* Chess board pattern overlay */}
@@ -124,12 +124,13 @@ const FindMatch = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="any">Any</SelectItem>
-                  <SelectItem value="beginner">Beginner (0–1200)</SelectItem>
+                  <SelectItem value="beginner">Beginner (0–1199)</SelectItem>
                   <SelectItem value="intermediate">
-                    Intermediate (1200–1400)
+                    Intermediate (1200–1599)
                   </SelectItem>
-                  <SelectItem value="pro">Pro (1400–1700)</SelectItem>
-                  <SelectItem value="elite">Elite (1700+)</SelectItem>
+                  <SelectItem value="Advanced">Advanced (1600–1799)</SelectItem>
+                  <SelectItem value="pro">Pro (1800-1999)</SelectItem>
+                  <SelectItem value="elite">Elite (2000+)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

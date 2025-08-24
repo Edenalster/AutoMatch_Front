@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { BellDot } from "lucide-react";
 import {
   DropdownMenu,
@@ -9,13 +9,92 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { Button } from "../components/ui/button";
+import { useNavigate } from "react-router-dom";
 
-interface Props {
-  tournamentLink: string | null;
-}
+const NotificationBell: React.FC = () => {
+  const [notification, setNotification] = useState<{
+    message: string;
+    link: string;
+  } | null>(null);
+  const hasNotification = !!notification;
+  const navigate = useNavigate();
 
-const NotificationBell: React.FC<Props> = ({ tournamentLink }) => {
-  const hasNotification = Boolean(tournamentLink);
+  useEffect(() => {
+    // Initial load from localStorage
+    const stored = localStorage.getItem("pendingNotification");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed.message && parsed.link) {
+          setNotification(parsed);
+        }
+      } catch {
+        setNotification(null);
+      }
+    }
+
+    // ✅ Listen for live updates from Navbar
+    const handleNotificationUpdate = (e: any) => {
+      console.log("📥 NotificationBell received update:", e.detail);
+      if (e.detail?.message && e.detail?.link) {
+        setNotification(e.detail);
+      }
+    };
+
+    window.addEventListener("notification-update", handleNotificationUpdate);
+
+    return () => {
+      window.removeEventListener(
+        "notification-update",
+        handleNotificationUpdate
+      );
+    };
+  }, []);
+  // ✅ Listen to localStorage changes from other parts of app
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "pendingNotification") {
+        if (e.newValue) {
+          try {
+            const parsed = JSON.parse(e.newValue);
+            if (parsed.message && parsed.link) {
+              setNotification(parsed);
+            }
+          } catch {
+            setNotification(null);
+          }
+        } else {
+          setNotification(null);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "pendingNotification" && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed.message && parsed.link) {
+            setNotification(parsed);
+          }
+        } catch {
+          setNotification(null);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  const clearNotifications = () => {
+    localStorage.removeItem("pendingNotification");
+    setNotification(null);
+  };
 
   return (
     <DropdownMenu>
@@ -33,25 +112,35 @@ const NotificationBell: React.FC<Props> = ({ tournamentLink }) => {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-[300px]">
-        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+        <div className="flex items-center justify-between px-3 pt-2">
+          <DropdownMenuLabel className="font-semibold">
+            Notifications
+          </DropdownMenuLabel>
+          {hasNotification && (
+            <button
+              onClick={clearNotifications}
+              className="text-xs text-red-500 hover:underline"
+            >
+              Clear All
+            </button>
+          )}
+        </div>
         <DropdownMenuSeparator />
 
-        {hasNotification ? (
-          <DropdownMenuItem className="cursor-pointer py-3">
-            <div className="flex flex-col gap-1">
-              <span className="font-medium">🎯 Room Ready</span>
-              <a
-                href={tournamentLink!}
-                className="text-xs text-blue-600 underline"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => {
-                  localStorage.removeItem("pendingTournamentLink");
-                }}
-              >
-                Join your game lobby
-              </a>
-            </div>
+        {notification ? (
+          <DropdownMenuItem className="cursor-pointer py-3 flex flex-col gap-1">
+            <span className="font-medium">{notification.message}</span>
+            <button
+              className="text-xs text-blue-600 underline text-left"
+              onClick={() => {
+                const id = notification.link.split("/").pop();
+                localStorage.removeItem("pendingNotification");
+                setNotification(null); // Update state too
+                navigate(`/lobby/${id}`);
+              }}
+            >
+              Join your game lobby
+            </button>
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem className="text-center py-3" disabled>

@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Trophy, Shield, Zap } from "lucide-react";
 import { Button } from "./ui/button";
 import { Link } from "react-router-dom";
+import { Users, Calendar } from "lucide-react";
 /**
  * Props for the FeatureBadge component.
  */
@@ -40,6 +41,40 @@ const FeatureBadge: React.FC<FeatureBadgeProps> = ({ icon, text }) => {
  * @returns {JSX.Element} The rendered HeroSection component.
  */
 const HeroSection: React.FC = () => {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
+  const [stats, setStats] = useState({
+    activePlayers: 0,
+    tournamentsCount: 0,
+    liveGames: 0,
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch(`${backendUrl}/api/lichess/dashboard/summary`);
+        const data = await res.json();
+
+        // Filter only live tournaments if not already done server-side
+        const liveTournamentCount =
+          data.tournaments?.filter((t: any) => t.status === "active").length ||
+          0;
+
+        setStats({
+          activePlayers: data.activePlayers,
+          liveGames: data.liveGames,
+          tournamentsCount: liveTournamentCount, // 🟡 override if needed
+        });
+      } catch (err) {
+        console.error("❌ Failed to fetch stats", err);
+      }
+    };
+
+    fetchStats(); // initial
+    const interval = setInterval(fetchStats, 2000); // 🔁 every 2s
+    return () => clearInterval(interval); // cleanup
+  }, []);
+
   return (
     <div
       id="home"
@@ -118,22 +153,56 @@ const HeroSection: React.FC = () => {
           style={{ animationDelay: "0.3s" }}
         >
           <div className="relative">
-            {/* Gradient overlay on the card */}
+            {/* Background glow */}
             <div className="absolute inset-0 bg-gradient-radial from-chess-gold/30 to-transparent rounded-full filter blur-xl"></div>
-            {/* Main prize pool card */}
+
+            {/* Main stats card */}
             <div className="relative w-72 h-72 sm:w-96 sm:h-96 bg-white/5 backdrop-blur-sm rounded-lg shadow-2xl overflow-hidden border border-white/10">
-              {/* Background chess pattern overlay */}
+              {/* Pattern overlay */}
               <div className="absolute inset-0 chess-board-bg opacity-30"></div>
-              {/* Centered icon inside the card */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-20 h-20 bg-chess-gold/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-md border border-chess-gold/30">
-                  <Trophy className="h-10 w-10 text-chess-gold" />
+
+              {/* Center content */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6">
+                {/* Icon + Label */}
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-chess-gold/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-md border border-chess-gold/30 mx-auto mb-3">
+                    <Zap className="h-8 w-8 text-chess-gold" />
+                  </div>
+                  <div className="text-sm text-white/70 uppercase tracking-wider">
+                    Live Now
+                  </div>
+                </div>
+
+                {/* Player + Tournament grid */}
+                <div className="grid grid-cols-2 gap-4 w-full">
+                  <div className="text-center p-3 bg-black/40 rounded-lg border border-white/10">
+                    <div className="flex items-center justify-center mb-2">
+                      <Users className="h-4 w-4 text-chess-secondary mr-1" />
+                      <span className="text-xs text-white/70">PLAYERS</span>
+                    </div>
+                    <div className="text-xl font-bold text-chess-secondary">
+                      {stats.activePlayers.toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="text-center p-3 bg-black/40 rounded-lg border border-white/10">
+                    <div className="flex items-center justify-center mb-2">
+                      <Calendar className="h-4 w-4 text-chess-gold mr-1" />
+                      <span className="text-xs text-white/70">TOURNAMENTS</span>
+                    </div>
+                    <div className="text-xl font-bold text-chess-gold">
+                      {stats.tournamentsCount}
+                    </div>
+                  </div>
                 </div>
               </div>
-              {/* Prize pool information at the bottom */}
+
+              {/* Bottom: Active matches */}
               <div className="absolute bottom-0 left-0 right-0 bg-black/80 border-t border-white/10 text-white p-4 text-center font-medium">
-                <div className="text-sm text-white/70">CURRENT PRIZE POOL</div>
-                <div className="text-2xl font-bold text-chess-gold">$2,500</div>
+                <div className="text-sm text-white/70">ACTIVE MATCHES</div>
+                <div className="text-2xl font-bold text-chess-gold">
+                  {stats.liveGames}
+                </div>
               </div>
             </div>
           </div>

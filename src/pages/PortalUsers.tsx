@@ -18,7 +18,15 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { Search, Filter, Plus, Eye, Settings, Shield, AlertTriangle } from "lucide-react";
+import {
+  Search,
+  // Filter,
+  // Plus,
+  Eye,
+  // Settings,
+  Shield,
+  AlertTriangle,
+} from "lucide-react";
 
 const PortalUsers = () => {
   const navigate = useNavigate();
@@ -36,7 +44,7 @@ const PortalUsers = () => {
     status: "active" | "inactive";
     balance: number;
     cheatingDetected: boolean;
-    cheatingCount: number;  
+    cheatingCount: number;
   }
 
   const [users, setUsers] = useState<User[]>([]);
@@ -96,12 +104,12 @@ const PortalUsers = () => {
           />
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <Button className="bg-white/10 hover:bg-white/20 text-white border border-white/20">
+          {/* <Button className="bg-white/10 hover:bg-white/20 text-white border border-white/20">
             <Filter className="mr-2 h-4 w-4" /> Filter
-          </Button>
-          <Button className="primary-btn">
+          </Button> */}
+          {/* <Button className="primary-btn">
             <Plus className="mr-2 h-4 w-4" /> Add User
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -123,11 +131,15 @@ const PortalUsers = () => {
                     <TableHead className="hidden md:table-cell text-white/80">
                       Lichess ID
                     </TableHead>
-                    <TableHead className="text-center text-white/80">Rating</TableHead>
+                    <TableHead className="text-center text-white/80">
+                      Rating
+                    </TableHead>
                     <TableHead className="text-center text-white/80 hidden lg:table-cell">
                       Balance
                     </TableHead>
-                    <TableHead className="text-center text-white/80">Status</TableHead>
+                    <TableHead className="text-center text-white/80">
+                      Status
+                    </TableHead>
                     {/* New Cheating Detection Column */}
                     <TableHead className="text-center text-white/80">
                       <div className="flex items-center justify-center gap-1">
@@ -135,7 +147,9 @@ const PortalUsers = () => {
                         Cheating Detection
                       </div>
                     </TableHead>
-                    <TableHead className="text-right text-white/80">Actions</TableHead>
+                    <TableHead className="text-right text-white/80">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -149,12 +163,11 @@ const PortalUsers = () => {
                         <div className="flex items-center space-x-4">
                           <Avatar className="h-10 w-10 border border-white/20">
                             <AvatarFallback className="bg-chess-primary text-chess-dark">
-                              {(user.name && user.name !== "Unknown"
-                                ? user.name
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")
-                                : user.email?.split("@")[0]?.[0] || "U"
+                              {(
+                                user.lichessId?.[0] ||
+                                user.name?.[0] ||
+                                user.email?.[0] ||
+                                "U"
                               ).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
@@ -219,7 +232,7 @@ const PortalUsers = () => {
                             <Eye className="h-4 w-4" />
                             <span className="sr-only">View</span>
                           </Button>
-                          <Button
+                          {/* <Button
                             size="icon"
                             variant="ghost"
                             className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10"
@@ -227,7 +240,7 @@ const PortalUsers = () => {
                           >
                             <Settings className="h-4 w-4" />
                             <span className="sr-only">Edit</span>
-                          </Button>
+                          </Button> */}
                         </div>
                       </TableCell>
                     </TableRow>

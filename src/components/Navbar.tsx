@@ -13,6 +13,7 @@ import {
 } from "../components/ui/dropdown-menu";
 import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar";
 import NotificationBell from "./NotificationBell";
+import AddFriendsDropdown from "./AddFriendsDropdown"; // הוסף את הייבוא הזה
 
 /**
  * Props for navigation link components.
@@ -62,96 +63,71 @@ const MobileNavLink: React.FC<NavLinkProps> = ({ href, children, onClick }) => {
  */
 interface ProfileDropdownProps {
   onLogout: () => void;
+  user?: { admin?: boolean };
 }
 
-const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onLogout }) => {
+const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
+  onLogout,
+  user,
+}) => {
   const [userDisplay, setUserDisplay] = useState("Player");
   const [userTag, setUserTag] = useState("");
 
   useEffect(() => {
-    // Check for any stored email in localStorage
-    const storedEmail = localStorage.getItem("email");
     const lichessId = localStorage.getItem("lichessId");
+    const email = localStorage.getItem("email");
+    const userRaw = localStorage.getItem("user");
 
-    console.log("Email in localStorage:", storedEmail);
-    console.log("LichessId in localStorage:", lichessId);
+    console.log("📦 Raw userJson from localStorage:", userRaw);
 
-    // If we have a Lichess ID, use it
-    if (lichessId && lichessId.length > 0) {
+    if (lichessId) {
       setUserDisplay(lichessId);
       setUserTag(`@${lichessId}`);
       return;
     }
 
-    // If we have an email directly in localStorage
-    if (storedEmail) {
-      const emailPrefix = storedEmail.split("@")[0];
+    if (email) {
+      const emailPrefix = email.split("@")[0];
       setUserDisplay(emailPrefix);
-      setUserTag(storedEmail);
+      setUserTag(email);
       return;
     }
 
-    // Try to get user data (which might contain email)
-    const userJson = localStorage.getItem("user");
-    console.log("User data in localStorage:", userJson);
-
-    if (!userJson) return;
+    if (!userRaw) return;
 
     try {
-      // Try parsing as JSON (for Google login or user object)
-      const userData = JSON.parse(userJson);
-      console.log("Parsed user data:", userData);
-
-      // Check if the user data has an email property
-      if (userData.email) {
-        const emailPrefix = userData.email.split("@")[0];
+      const parsed = JSON.parse(userRaw);
+      if (parsed && typeof parsed === "object" && parsed.email) {
+        const emailPrefix = parsed.email.split("@")[0];
         setUserDisplay(emailPrefix);
-        setUserTag(userData.email);
+        setUserTag(parsed.email);
         return;
       }
+    } catch (err) {
+      console.warn(
+        "User is not a valid JSON object. Treating as fallback string."
+      );
+    }
 
-      // If the data is an email string itself (from Google login)
-      if (typeof userData === "string" && userData.includes("@")) {
-        const emailPrefix = userData.split("@")[0];
-        setUserDisplay(emailPrefix);
-        setUserTag(userData);
-        return;
-      }
-    } catch (error) {
-      console.log("Parsing user data failed, treating as string:", error);
+    if (userRaw.includes("@")) {
+      const emailPrefix = userRaw.split("@")[0];
+      setUserDisplay(emailPrefix);
+      setUserTag(userRaw);
+      return;
+    }
 
-      // If parsing fails, check if the raw string is an email
-      if (userJson.includes("@")) {
-        const emailPrefix = userJson.split("@")[0];
-        setUserDisplay(emailPrefix);
-        setUserTag(userJson);
-        return;
-      }
+    const formEmail = localStorage.getItem("formEmail");
+    if (formEmail?.includes("@")) {
+      const emailPrefix = formEmail.split("@")[0];
+      setUserDisplay(emailPrefix);
+      setUserTag(formEmail);
+      return;
+    }
 
-      // For normal email login, the user value is just the MongoDB ID
-      // In this case, we need to use the email from the login form
-      // Since we don't have access to it directly, use a fallback username
-      const formEmail = localStorage.getItem("formEmail");
-      if (formEmail) {
-        const emailPrefix = formEmail.split("@")[0];
-        setUserDisplay(emailPrefix);
-        setUserTag(formEmail);
-        return;
-      }
-
-      // If we have no other identifiers, use the first part of the user ID
-      // This is better than showing "Player"
-      if (userJson && userJson.length > 0) {
-        // If it looks like a MongoDB ObjectId, use part of it
-        if (userJson.match(/^[0-9a-f]{24}$/i)) {
-          const shortId = userJson.substring(0, 8) + "...";
-          setUserDisplay(shortId);
-          return;
-        }
-
-        // Otherwise just use whatever string we have
-        setUserDisplay(userJson);
-      }
+    if (/^[0-9a-f]{24}$/i.test(userRaw)) {
+      setUserDisplay(userRaw.substring(0, 8) + "...");
+    } else {
+      setUserDisplay(userRaw);
     }
   }, []);
 
@@ -188,6 +164,20 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onLogout }) => {
             <span>Profile</span>
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem className="cursor-pointer">
+          <Link to="/my-tournaments" className="flex items-center w-full">
+            <Trophy className="mr-2 h-4 w-4" />
+            <span>My Tournaments</span>
+          </Link>
+        </DropdownMenuItem>
+        {user?.admin && (
+          <DropdownMenuItem className="cursor-pointer">
+            <Link to="/portal/dashboard" className="flex items-center w-full">
+              <Trophy className="mr-2 h-4 w-4" />
+              <span>Portal</span>
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           onClick={onLogout}
           className="cursor-pointer text-destructive"
@@ -213,11 +203,148 @@ const Navbar: React.FC<NavbarProps> = ({ showItems }) => {
   // Local state to manage login status
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [tournamentLink, setTournamentLink] = useState<string | null>(null);
+  const [user, setUser] = useState<{ admin?: boolean }>({});
+  console.log(tournamentLink);
+  useEffect(() => {
+    const userJson = localStorage.getItem("user");
+    console.log("📦 Raw userJson from localStorage:", userJson);
+
+    const ADMIN_IDS = ["edenals", "noyamsallem199", "edenyoav"];
+
+    try {
+      if (userJson && userJson.trim().startsWith("{")) {
+        const parsed = JSON.parse(userJson);
+        console.log("🧠 Parsed userData:", parsed);
+
+        const rawAdmin = parsed.Admin ?? parsed.admin;
+        const isAdminLichess = ADMIN_IDS.includes(parsed.lichessId);
+
+        const isAdmin =
+          rawAdmin === true ||
+          rawAdmin === "true" ||
+          rawAdmin === "True" ||
+          isAdminLichess;
+
+        console.log("✅ Final isAdmin value:", isAdmin);
+        setUser({ admin: isAdmin });
+      } else {
+        // Fallback if userJson is not a JSON string
+        const lichessId = localStorage.getItem("lichessId");
+        const isAdminLichess = ADMIN_IDS.includes(lichessId ?? "");
+        console.log("♟️ Fallback lichessId:", lichessId);
+        setUser({ admin: isAdminLichess });
+      }
+    } catch (e) {
+      console.error("❌ Failed to parse userJson:", e);
+    }
+  }, []);
+
+  interface LobbyFullPayload {
+    tournamentName: string;
+    lobbyUrl: string;
+  }
 
   useEffect(() => {
-    const storedLink = localStorage.getItem("pendingTournamentLink");
-    if (storedLink) {
-      setTournamentLink(storedLink);
+    const socket = (window as any).socket;
+    const lichessId = localStorage.getItem("lichessId");
+
+    if (socket && lichessId && socket.connected) {
+      console.log(`[Navbar] Emitting joinRoom globally: ${lichessId}`);
+      socket.emit("joinRoom", lichessId);
+    }
+
+    socket?.on("connect", () => {
+      if (lichessId) {
+        console.log(`🔁 Reconnect — emitting joinRoom again: ${lichessId}`);
+        socket.emit("joinRoom", lichessId);
+      }
+    });
+
+    socket?.on(
+      "lobbyFull",
+      ({ tournamentName, lobbyUrl }: LobbyFullPayload) => {
+        console.log(`🔔 [Navbar] Received lobbyFull: ${tournamentName}`);
+        localStorage.setItem(
+          "pendingNotification",
+          JSON.stringify({
+            message: `Tournament is about to start!`,
+            link: lobbyUrl,
+          })
+        );
+        window.dispatchEvent(
+          new CustomEvent("notification-update", {
+            detail: {
+              message: `Tournament is about to start!`,
+              link: lobbyUrl,
+            },
+          })
+        );
+      }
+    );
+
+    socket?.on(
+      "tournamentInvite",
+      ({
+        from,
+        tournamentName,
+        lobbyUrl,
+      }: {
+        from: string;
+        tournamentName: string;
+        lobbyUrl: string;
+      }) => {
+        console.log(`📩 Invite from ${from} to "${tournamentName}"`);
+
+        const notif = {
+          message: `${from} invited you to a tournament`,
+          link: lobbyUrl,
+        };
+
+        localStorage.setItem("pendingNotification", JSON.stringify(notif));
+
+        // ✅ Notify NotificationBell
+        setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent("notification-update", { detail: notif })
+          );
+        }, 100); // Let NotificationBell mount first
+
+        localStorage.setItem("pendingNotification", JSON.stringify(notif));
+        window.dispatchEvent(
+          new CustomEvent("notification-update", { detail: notif })
+        );
+
+        const audio = new Audio("/notification.mp3");
+        audio.play().catch(() => {});
+      }
+    );
+
+    return () => {
+      socket?.off("lobbyFull");
+      socket?.off("tournamentInvite");
+    };
+  }, []);
+
+  // 👂 Listen for changes to the pending tournament invite
+  useEffect(() => {
+    const checkNotification = () => {
+      const link = localStorage.getItem("pendingTournamentLink");
+      setTournamentLink(link);
+    };
+
+    checkNotification();
+    const interval = setInterval(checkNotification, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 🟢 Emit 'user_online' once on mount
+  useEffect(() => {
+    const socket = (window as any).socket;
+    const lichessId = localStorage.getItem("lichessId");
+
+    if (socket && lichessId) {
+      socket.emit("user_online", { lichessId });
+      console.log("📡 Emitted user_online for", lichessId);
     }
   }, []);
 
@@ -301,13 +428,25 @@ const Navbar: React.FC<NavbarProps> = ({ showItems }) => {
               <NavLink href="#how-it-works">How It Works</NavLink>
             </>
           ) : (
-            <></>
+            <>
+              {/* הוספת לינק My Tournaments כשלא בדף הראשי */}
+              {isLoggedIn && (
+                <Link to="/my-tournaments">
+                  <span className="text-white/80 hover:text-chess-gold transition-colors duration-200 font-medium relative after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:w-0 after:bg-chess-gold after:transition-all after:duration-300 hover:after:w-full">
+                    My Tournaments
+                  </span>
+                </Link>
+              )}
+            </>
           )}
 
           {/* Action buttons for desktop */}
-
           <div className="flex items-center space-x-3 ml-4">
-            <NotificationBell tournamentLink={tournamentLink} />
+            <NotificationBell />
+
+            {/* 🆕 הוספת AddFriendsDropdown - רק כשמחובר */}
+            {isLoggedIn && <AddFriendsDropdown />}
+
             <Link to="/find-match">
               <Button className="primary-btn" size="sm">
                 Play Now
@@ -315,7 +454,7 @@ const Navbar: React.FC<NavbarProps> = ({ showItems }) => {
             </Link>
             {isLoggedIn ? (
               // Show the profile dropdown ONLY when logged in
-              <ProfileDropdown onLogout={handleLogout} />
+              <ProfileDropdown onLogout={handleLogout} user={user} />
             ) : (
               // Show login/register buttons when NOT logged in
               <div className="flex items-center space-x-3">
@@ -362,24 +501,43 @@ const Navbar: React.FC<NavbarProps> = ({ showItems }) => {
       {isMobileMenuOpen && (
         <div className="md:hidden absolute top-full left-0 right-0 bg-chess-dark/95 backdrop-blur-md shadow-lg animate-slide-down border-b border-white/10 p-4">
           <div className="flex flex-col space-y-4 py-2">
-            <MobileNavLink
-              href="#tournaments"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Tournaments
-            </MobileNavLink>
-            <MobileNavLink
-              href="#features"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Features
-            </MobileNavLink>
-            <MobileNavLink
-              href="#how-it-works"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              How It Works
-            </MobileNavLink>
+            {showItems ? (
+              <>
+                <MobileNavLink
+                  href="#tournaments"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Tournaments
+                </MobileNavLink>
+                <MobileNavLink
+                  href="#features"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Features
+                </MobileNavLink>
+                <MobileNavLink
+                  href="#how-it-works"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  How It Works
+                </MobileNavLink>
+              </>
+            ) : (
+              <>
+                {/* הוספת My Tournaments במובייל - רק כשמחובר */}
+                {isLoggedIn && (
+                  <Link
+                    to="/my-tournaments"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <div className="text-white px-3 py-2 rounded-md hover:bg-white/5 transition-colors duration-200 font-medium">
+                      My Tournaments
+                    </div>
+                  </Link>
+                )}
+              </>
+            )}
+
             <MobileNavLink
               href="#contact"
               onClick={() => setIsMobileMenuOpen(false)}
@@ -387,11 +545,20 @@ const Navbar: React.FC<NavbarProps> = ({ showItems }) => {
               Contact
             </MobileNavLink>
 
+            {/* 🆕 הוסף Add Friends גם במובייל - רק כשמחובר */}
+            {isLoggedIn && (
+              <div className="px-3 py-2 border-t border-white/10 pt-4">
+                <AddFriendsDropdown />
+              </div>
+            )}
+
             {/* Action buttons for mobile */}
             <div className="grid grid-cols-2 gap-3 pt-3">
-              <Button className="primary-btn w-full" size="sm">
-                Play Now
-              </Button>
+              <Link to="/find-match">
+                <Button className="primary-btn w-full" size="sm">
+                  Play Now
+                </Button>
+              </Link>
               {isLoggedIn ? (
                 <Button
                   onClick={handleLogout}

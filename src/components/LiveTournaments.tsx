@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import TournamentCard from "./TournamentCard";
 import { Trophy, ChevronRight, Filter } from "lucide-react";
-import { Link } from "react-router-dom"; 
+import { Link, useNavigate } from "react-router-dom";
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
@@ -17,6 +17,7 @@ interface Tournament {
   entryFee: number;
   playerIds: string[];
   maxPlayers: number;
+  status: string; // ✅ Add this line
 }
 
 const TournamentFilter: React.FC<{
@@ -41,11 +42,15 @@ const TournamentFilter: React.FC<{
 const LiveTournaments: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState("all");
   const [liveTournaments, setLiveTournaments] = useState<Tournament[]>([]);
+  const navigate = useNavigate();
+  const [fullTournaments, setFullTournaments] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchLiveTournaments = async () => {
       try {
-        const res = await fetch(`${backendUrl}/api/lichess/tournaments/search?entryFee=0&rankRange=any`);
+        const res = await fetch(
+          `${backendUrl}/api/lichess/tournaments/search?entryFee=0&rankRange=any`
+        );
         const data = await res.json();
         setLiveTournaments(data.tournaments || []);
       } catch (err) {
@@ -56,15 +61,60 @@ const LiveTournaments: React.FC = () => {
     fetchLiveTournaments();
   }, []);
 
-  const filteredTournaments = liveTournaments.filter((t) => {
-    if (activeFilter === "all") return true;
-    return t.rankRange?.label?.toLowerCase() === activeFilter;
-  });
+  const filteredTournaments = liveTournaments
+  .filter((t: Tournament) => t.status !== "completed" && t.status !== "expired")
+  .filter((t) => {
+      if (activeFilter === "all") return true;
+      return t.rankRange?.label?.toLowerCase() === activeFilter;
+    });
+
+  const handleJoin = async (tournamentId: string) => {
+    const lichessId = localStorage.getItem("lichessId");
+
+    try {
+      const userRes = await fetch(`https://lichess.org/api/user/${lichessId}`);
+      const userData = await userRes.json();
+      const userRating = userData?.perfs?.blitz?.rating || 1500;
+
+      const tournament = liveTournaments.find((t) => t._id === tournamentId);
+      if (!tournament) throw new Error("Tournament not found");
+
+      // Check if full
+      if (tournament.playerIds.length >= tournament.maxPlayers) {
+        setFullTournaments((prev) => [...prev, tournament._id]);
+        return;
+      }
+
+      // Check rating range
+      if (tournament.rankRange && userRating > tournament.rankRange.max) {
+        alert(
+          `Your rating (${userRating}) is too high for this tournament (max: ${tournament.rankRange.max})`
+        );
+        return;
+      }
+
+      // Join tournament
+      const res = await fetch(
+        `${backendUrl}/api/lichess/tournaments/${tournamentId}/join`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: lichessId }),
+        }
+      );
+
+      if (!res.ok) throw new Error("Join failed");
+      navigate(`/lobby/${tournamentId}`);
+    } catch (err) {
+      console.error("❌ Failed to join tournament:", err);
+      alert("Failed to join tournament.");
+    }
+  };
 
   return (
     <section id="tournaments" className="section-padding relative">
-     {/* Background gradient overlay */}
-     <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-radial from-chess-gold/5 to-transparent"></div>
+      {/* Background gradient overlay */}
+      <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-radial from-chess-gold/5 to-transparent"></div>
       {/* Background gradient with a chess board pattern overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-chess-dark/90 via-chess-dark to-chess-dark/90 z-0"></div>
       <div className="absolute inset-0 chess-board-bg opacity-15 z-0"></div>
@@ -97,7 +147,7 @@ const LiveTournaments: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {["all", "rapid", "blitz", "classic"].map((type) => (
+            {["all", "Beginner", "Intermediate", "pro", "Elite"].map((type) => (
               <TournamentFilter
                 key={type}
                 title={type.charAt(0).toUpperCase() + type.slice(1)}
@@ -119,23 +169,30 @@ const LiveTournaments: React.FC = () => {
         {/* Tournaments */}
         {filteredTournaments.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTournaments.map((tournament) => (
-              <TournamentCard
-                key={tournament._id}
-                title={tournament.tournamentName}
-                type={tournament.rankRange?.label || "Ranked"}
-                avgRating={
-                  tournament.rankRange
-                    ? (tournament.rankRange.min + tournament.rankRange.max) / 2
-                    : 1500
-                }
-                prizePool={tournament.entryFee * tournament.maxPlayers}
-                players={tournament.playerIds.length}
-                maxPlayers={tournament.maxPlayers}
-                startTime="Ongoing"
-                featured={false}
-                onJoin={() => console.log("Join", tournament._id)}
-              />
+            {filteredTournaments.slice(0, 3).map((tournament) => (
+              <div key={tournament._id}>
+                <TournamentCard
+                  title={tournament.tournamentName}
+                  type={tournament.rankRange?.label || "Ranked"}
+                  avgRating={
+                    tournament.rankRange
+                      ? (tournament.rankRange.min + tournament.rankRange.max) /
+                        2
+                      : 1500
+                  }
+                  prizePool={tournament.entryFee * tournament.maxPlayers}
+                  players={tournament.playerIds.length}
+                  maxPlayers={tournament.maxPlayers}
+                  startTime="Ongoing"
+                  featured={false}
+                  onJoin={() => handleJoin(tournament._id)}
+                />
+                {fullTournaments.includes(tournament._id) && (
+                  <p className="text-sm text-red-500 mt-2 text-center">
+                    Tournament is already full
+                  </p>
+                )}
+              </div>
             ))}
           </div>
         ) : (
@@ -145,15 +202,15 @@ const LiveTournaments: React.FC = () => {
         )}
 
         <div className="flex justify-center mt-10">
-        <Link to="/search-results?entryFee=0&rankRange=any">
-  <Button
-    variant="outline"
-    className="group bg-white/5 border-white/20 text-white hover:bg-white/10"
-  >
-    <span>View All Tournaments</span>
-    <ChevronRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-  </Button>
-</Link>
+          <Link to="/search-results?entryFee=0&rankRange=any">
+            <Button
+              variant="outline"
+              className="group bg-white/5 border-white/20 text-white hover:bg-white/10"
+            >
+              <span>View All Tournaments</span>
+              <ChevronRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Button>
+          </Link>
         </div>
       </div>
     </section>

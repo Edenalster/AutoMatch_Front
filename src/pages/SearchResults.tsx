@@ -38,7 +38,7 @@ const SearchResults = () => {
         const data = await res.json();
   
         const filtered = (data.tournaments ?? [])
-          .filter((t: Tournament) => t.status !== "completed") // ✅ hide completed
+        .filter((t: Tournament) => t.status !== "completed" && t.status !== "expired")// ✅ hide completed
           .sort((a: Tournament, b: Tournament) => b._id.localeCompare(a._id)); // newest first
   
         setTournaments(filtered);

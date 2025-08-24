@@ -1,97 +1,97 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
+// import { Input } from "../components/ui/input";
 import { Trophy } from "lucide-react";
-import { Link,  useLocation } from "react-router-dom";
-import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
-import axios from "axios";
+import { Link, useLocation } from "react-router-dom";
+// import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
+// import axios from "axios";
 
-interface IUser {
-  email: string;
-  password?: string;
-  imgUrl?: string;
-  _id: string;
-  accessToken?: string;
-  refreshToken?: string;
-}
+// interface IUser {
+//   email: string;
+//   password?: string;
+//   imgUrl?: string;
+//   _id: string;
+//   accessToken?: string;
+//   refreshToken?: string;
+// }
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 console.log("🔗 backendUrl =", backendUrl);
 
-
 const Login: React.FC = () => {
-  const [formData, setFormData] = useState({ email: "", password: "" });
+  // const [formData, setFormData] = useState({ email: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
   // const navigate = useNavigate();
   const location = useLocation();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  // const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const { name, value } = e.target;
+  //   setFormData(prev => ({ ...prev, [name]: value }));
+  // };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setMessage("");
-    try {
-      console.log("🔍 Sending login request with:", formData);
-      localStorage.setItem("formEmail", formData.email);
-      const response = await axios.post(`${backendUrl}/auth/login`, formData);
-      if (response.status === 200) {
-        const data = response.data;
-        console.log("✅ Login successful!", data);
-        if (data.accessToken) {
-          localStorage.setItem("token", data.accessToken);
-          localStorage.setItem("user", data._id);
-          localStorage.setItem("email", data.email || formData.email);
-        }
-        setMessage("Login successful!");
-        // full reload to ensure token is read before any redirects
-        window.location.replace("/");
-      } else {
-        setMessage(response.data.message || "Failed to log in.");
-      }
-    } catch (error: any) {
-      if (axios.isAxiosError(error)) {
-        console.error("🛑 Login failed:", error.response?.data || error.message);
-        setMessage("Invalid email or password.");
-      } else {
-        console.error("🛑 Login failed:", error);
-        setMessage("An unexpected error occurred.");
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setIsLoading(true);
+  //   setMessage("");
+  //   try {
+  //     console.log("🔍 Sending login request with:", formData);
+  //     localStorage.setItem("formEmail", formData.email);
+  //     const response = await axios.post(`${backendUrl}/auth/login`, formData);
+  //     if (response.status === 200) {
+  //       const data = response.data;
+  //       console.log("✅ Login successful!", data);
+  //       if (data.accessToken) {
+  //         localStorage.setItem("token", data.accessToken);
+  //         localStorage.setItem("user", data._id);
+  //         localStorage.setItem("email", data.email || formData.email);
+  //       }
+  //       setMessage("Login successful!");
+  //       // full reload to ensure token is read before any redirects
+  //       window.location.replace("/");
+  //     } else {
+  //       setMessage(response.data.message || "Failed to log in.");
+  //     }
+  //   } catch (error: any) {
+  //     if (axios.isAxiosError(error)) {
+  //       console.error("🛑 Login failed:", error.response?.data || error.message);
+  //       setMessage("Invalid email or password.");
+  //     } else {
+  //       console.error("🛑 Login failed:", error);
+  //       setMessage("An unexpected error occurred.");
+  //     }
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
-  const googleSignin = async (credentialResponse: CredentialResponse): Promise<IUser> => {
-    const res = await axios.post(`${backendUrl}/auth/google`, credentialResponse);
-    console.log("Google Signin success!", res.data);
-    if (res.data.accessToken) {
-      localStorage.setItem("token", res.data.accessToken);
-      localStorage.setItem("user", res.data._id);
-      localStorage.setItem("email", res.data.email || "");
-    }
-    return res.data;
-  };
+  // const googleSignin = async (credentialResponse: CredentialResponse): Promise<IUser> => {
+  //   const res = await axios.post(`${backendUrl}/auth/google`, credentialResponse);
+  //   console.log("Google Signin success!", res.data);
+  //   if (res.data.accessToken) {
+  //     localStorage.setItem("token", res.data.accessToken);
+  //     localStorage.setItem("user", res.data._id);
+  //     localStorage.setItem("email", res.data.email || "");
+  //   }
+  //   return res.data;
+  // };
 
-  const onGoogleLoginSuccess = async (credentialResponse: CredentialResponse) => {
-    console.log("✅ Google login successful!", credentialResponse);
-    try {
-      await googleSignin(credentialResponse);
-      window.location.replace("/");
-    } catch (error) {
-      console.log("Google Signin error!", error);
-      setMessage("Google sign-in failed. Please try again.");
-    }
-  };
+  // const onGoogleLoginSuccess = async (credentialResponse: CredentialResponse) => {
+  //   console.log("✅ Google login successful!", credentialResponse);
+  //   try {
+  //     await googleSignin(credentialResponse);
+  //     window.location.replace("/");
+  //   } catch (error) {
+  //     console.log("Google Signin error!", error);
+  //     setMessage("Google sign-in failed. Please try again.");
+  //   }
+  // };
 
-  const onGoogleLoginError = () => {
-    console.error("🛑 Google login failed!");
-    setMessage("Google sign-in failed. Please try again or use email login.");
-  };
+  // const onGoogleLoginError = () => {
+  //   console.error("🛑 Google login failed!");
+  //   setMessage("Google sign-in failed. Please try again or use email login.");
+  // };
 
+  console.log(setIsLoading);
   const handleLichessLogin = () => {
     window.location.href = `${backendUrl}/auth/lichess/login`;
   };
@@ -127,7 +127,11 @@ const Login: React.FC = () => {
     const userId = params.get("userId");
     const lichessId = params.get("lichessId");
     if (token && userId) {
-      onLichessLoginSuccess({ accessToken: token, userId, lichessId: lichessId || undefined });
+      onLichessLoginSuccess({
+        accessToken: token,
+        userId,
+        lichessId: lichessId || undefined,
+      });
     }
     const lichessError = params.get("lichessError");
     if (lichessError) {
@@ -166,10 +170,14 @@ const Login: React.FC = () => {
           <div className="prize-glow-content glass-card p-8 rounded-lg">
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold text-shine mb-2">Sign In</h1>
-              <p className="text-white/70">Welcome back to AutoMatch</p>
+              <p className="text-white/70">
+                Welcome back! Sign in with your Lichess account to continue.
+              </p>
+              {/* <p className="text-white/70">
+                Click the button below to log in with your Lichess account
+              </p> */}
             </div>
 
-            {/* Message display */}
             {message && (
               <div
                 className={`p-3 rounded-md text-center mb-4 ${
@@ -182,122 +190,20 @@ const Login: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-white/90"
-                >
-                  Email
-                </label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  placeholder="your@email.com"
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-                  disabled={isLoading}
+            <Button
+              onClick={handleLichessLogin}
+              type="button"
+              className="w-full bg-[#4a4a4a] hover:bg-[#3a3a3a] text-white font-medium flex items-center justify-center space-x-2"
+              disabled={isLoading}
+            >
+              <svg className="h-5 w-5" viewBox="0 0 32 32" fill="none">
+                <path
+                  d="M16 2C8.268 2 2 8.268 2 16s6.268 14 14 14 14-6.268 14-14S23.732 2 16 2zm4.714 24.5h-9.428v-4h9.428v4zm4.572-9.714H6.714V6.714h18.572v10.072z"
+                  fill="white"
                 />
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-white/90"
-                >
-                  Password
-                </label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  placeholder="••••••••"
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-                  disabled={isLoading}
-                />
-                <div className="flex justify-end">
-                  <Link
-                    to="/forgot-password"
-                    className="text-sm text-chess-gold hover:text-chess-gold/80"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                className="primary-btn w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? "Signing in..." : "Sign In"}
-              </Button>
-            </form>
-
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/20"></div>
-              </div>
-              <div className="relative flex justify-center">
-                <span className="bg-chess-dark px-4 text-sm text-white/50">
-                  OR CONTINUE WITH
-                </span>
-              </div>
-            </div>
-
-            {/* OAuth Buttons */}
-            <div className="space-y-3 mb-6">
-              <div
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  marginTop: "10px",
-                }}
-              >
-                <GoogleLogin
-                  onSuccess={onGoogleLoginSuccess}
-                  onError={onGoogleLoginError}
-                  theme="outline"
-                  size="large"
-                  width="400"
-                />
-              </div>
-
-              <Button
-                onClick={handleLichessLogin}
-                type="button"
-                className="w-full bg-[#4a4a4a] hover:bg-[#3a3a3a] text-white font-medium flex items-center justify-center space-x-2"
-                disabled={isLoading}
-              >
-                <svg className="h-5 w-5" viewBox="0 0 32 32" fill="none">
-                  <path
-                    d="M16 2C8.268 2 2 8.268 2 16s6.268 14 14 14 14-6.268 14-14S23.732 2 16 2zm4.714 24.5h-9.428v-4h9.428v4zm4.572-9.714H6.714V6.714h18.572v10.072z"
-                    fill="white"
-                  />
-                </svg>
-                <span>Sign in with Lichess</span>
-              </Button>
-            </div>
-
-            <div className="mt-6 text-center">
-              <p className="text-white/70">
-                Don't have an account yet?{" "}
-                <Link
-                  to="/register"
-                  className="text-chess-gold hover:text-chess-gold/80 font-medium"
-                >
-                  Create account
-                </Link>
-              </p>
-            </div>
+              </svg>
+              <span>Sign in with Lichess</span>
+            </Button>
           </div>
         </div>
       </main>
