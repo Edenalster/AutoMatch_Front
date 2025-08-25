@@ -21,7 +21,6 @@ const ChessBoard = () => {
     }
   }, [location.search]);
 
-  // Poll game state from backend to detect end of game
   useEffect(() => {
     if (!gameUrl) return;
     const interval = setInterval(async () => {
@@ -31,20 +30,19 @@ const ChessBoard = () => {
         const gameState = await res.json();
 
         if (gameState.status === "over" && !isRedirecting) {
-          console.log("✅ Game over. Redirecting to after-game page...");
+          console.log("Game over. Redirecting to after-game page...");
           setIsRedirecting(true);
           handleGoToAfterGame();
           clearInterval(interval);
         }
       } catch (error) {
-        console.error("❌ Failed to poll game state:", error);
+        console.error("Failed to poll game state:", error);
       }
     }, 5000);
 
     return () => clearInterval(interval);
   }, [gameUrl, isRedirecting]);
 
-  // Function to open the game URL in a pop-up window
   const openGameInPopup = () => {
     if (gameUrl) {
       window.open(gameUrl, "Game", "width=800,height=600");
@@ -56,7 +54,6 @@ const ChessBoard = () => {
     }
   };
 
-  // Function to navigate to the after game page
   const handleGoToAfterGame = () => {
     if (gameUrl) {
       const gameId = gameUrl.split("/").pop();

@@ -33,9 +33,9 @@ const NotificationBell: React.FC = () => {
       }
     }
 
-    // ✅ Listen for live updates from Navbar
+    // Listen for live updates from Navbar
     const handleNotificationUpdate = (e: any) => {
-      console.log("📥 NotificationBell received update:", e.detail);
+      console.log("NotificationBell received update:", e.detail);
       if (e.detail?.message && e.detail?.link) {
         setNotification(e.detail);
       }
@@ -50,7 +50,7 @@ const NotificationBell: React.FC = () => {
       );
     };
   }, []);
-  // ✅ Listen to localStorage changes from other parts of app
+  //  Listen to localStorage changes from other parts of app
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "pendingNotification") {

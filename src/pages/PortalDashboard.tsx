@@ -30,7 +30,7 @@ const PortalDashboard = () => {
     fetch(`${backendUrl}/api/lichess/dashboard/summary`)
       .then(res => res.json())
       .then(data => setStats(data))
-      .catch(err => console.error("❌ Dashboard fetch error:", err));
+      .catch(err => console.error("Dashboard fetch error:", err));
   }, []);
 
   
@@ -49,7 +49,7 @@ useEffect(() => {
     .then((res) => res.json())
     .then((data) => setTournaments(data.tournaments))
     .catch((err) =>
-      console.error("❌ Failed to fetch tournament table data", err)
+      console.error(" Failed to fetch tournament table data", err)
     );
 }, []);
 
@@ -94,7 +94,7 @@ useEffect(() => {
       setPlayers(formatted);
     })
     .catch((err) =>
-      console.error("❌ Failed to fetch players dashboard data", err)
+      console.error(" Failed to fetch players dashboard data", err)
     );
 }, []);
 

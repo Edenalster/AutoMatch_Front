@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Trophy, Users, Globe, Lock, Award, AlertCircle } from "lucide-react"; // <<< הוספנו אייקון התראה
+import { Trophy, Users, Globe, Lock, Award, AlertCircle } from "lucide-react"; 
 import {
   Form,
   FormControl,
@@ -53,11 +53,9 @@ const CreateTournament = () => {
 
   const [prizePool, setPrizePool] = useState<number>(80);
 
-  // <<< הוספה: State חדש לשמירת יתרת המשתמש והודעות שגיאה
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceError, setBalanceError] = useState<string>("");
 
-  // Watch form values to update prize pool
   const maxPlayers = form.watch("maxPlayers");
   const entryFee = form.watch("entryFee");
 
@@ -78,7 +76,6 @@ const CreateTournament = () => {
     const lichessId = localStorage.getItem("lichessId");
     if (!lichessId) return;
 
-    // פונקציה לשליפת דירוג המשתמש
     const fetchUserRank = async () => {
       try {
         const res = await fetch(`https://lichess.org/api/user/${lichessId}`);
@@ -104,48 +101,44 @@ const CreateTournament = () => {
       }
     };
     
-    // <<< הוספה: פונקציה לשליפת יתרת המשתמש
     const fetchUserBalance = async () => {
         const token = localStorage.getItem("token");
         const userId = localStorage.getItem("userId");
         if (!userId || !token) {
-            setBalance(0); // אם אין משתמש מחובר, היתרה היא 0
+            setBalance(0); 
             return;
         }
         try {
-            // נניח שיש לך נקודת קצה כזו שמחזירה את פרטי המשתמש כולל היתרה
             const res = await axios.get(`${backendUrl}/auth/users/${userId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setBalance(res.data.balance || 0);
         } catch (err) {
             console.error("Failed to fetch user balance", err);
-            setBalance(0); // במקרה של שגיאה, נניח שהיתרה 0
+            setBalance(0); 
         }
     };
 
     document.title = "Create Tournament - AutoMatch";
     fetchUserRank();
-    fetchUserBalance(); // <<< הוספה: קריאה לפונקציה החדשה
+    fetchUserBalance(); 
   }, []);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     const fee = parseInt(values.entryFee);
 
-    // <<< הוספה: בדיקת יתרה לפני השליחה
-    // הבדיקה רלוונטית רק אם דמי הכניסה גדולים מ-0
+  
     if (fee > 0) {
         if (balance === null) {
             setBalanceError("Checking balance, please wait...");
-            return; // מונע שליחה אם היתרה עדיין נטענת
+            return; 
         }
         if (balance < fee) {
             setBalanceError(`Insufficient funds. You need $${fee} but only have $${balance}. Please add funds to your account.`);
-            return; // מונע שליחה אם אין מספיק כסף
+            return; 
         }
     }
     
-    // אם הגענו לכאן, הטורניר חינמי או שיש מספיק כסף. נאפס את השגיאה.
     setBalanceError("");
 
     try {
@@ -161,7 +154,7 @@ const CreateTournament = () => {
           tournamentName: values.tournamentName,
           entryFee: fee,
           visibility: values.visibility,
-          rankRange: rankRange // שליחת טווח הדירוג לבאקאנד
+          rankRange: rankRange 
         },
         {
           headers: {
@@ -174,12 +167,10 @@ const CreateTournament = () => {
       const tournamentId = response.data.tournament._id;
       localStorage.setItem("tournamentId", tournamentId);
 
-      // ניווט ללובי לאחר יצירת הטורניר
       navigate(`/lobby/${tournamentId}`);
 
     } catch (err) {
       console.error("Failed to create tournament", err);
-      // <<< הוספה: הצגת שגיאה כללית אם יצירת הטורניר נכשלה
       setBalanceError("Failed to create tournament. Please try again later.");
     }
   };
@@ -196,7 +187,7 @@ const CreateTournament = () => {
 
       <Navbar showItems={false} />
 
-      <div className="container mx-auto px-6 pt-20 pb-12"> {/* הוספנו pb-12 */}
+      <div className="container mx-auto px-6 pt-20 pb-12"> {}
         <div className="max-w-2xl mx-auto">
           <div className="space-y-2 text-center mb-8">
             <h1 className="text-4xl font-bold text-white drop-shadow-lg">
@@ -213,7 +204,7 @@ const CreateTournament = () => {
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-6"
               >
-                {/* ... שדות הטופס נשארים ללא שינוי ... */}
+                {}
                 <FormField
                   control={form.control}
                   name="tournamentName"
@@ -366,7 +357,7 @@ const CreateTournament = () => {
                   </div>
                 )}
 
-                {/* <<< הוספה: הצגת הודעת השגיאה של היתרה */}
+                {}
                 {balanceError && (
                     <div className="bg-red-500/10 border border-red-500/50 text-red-300 text-sm rounded-md p-3 flex items-center gap-3">
                         <AlertCircle className="h-5 w-5" />
@@ -377,7 +368,7 @@ const CreateTournament = () => {
                 <div className="flex flex-row gap-10">
                   <Button
                     onClick={handleClick}
-                    type="button" // חשוב למנוע שליחת טופס
+                    type="button"
                     className="w-full secondary-btn py-6 bg-blue-900 text-white hover:bg-blue-700"
                   >
                     Cancel
@@ -386,7 +377,6 @@ const CreateTournament = () => {
                   <Button 
                     type="submit" 
                     className="primary-btn w-full py-6"
-                    // <<< הוספה: מנטרל את הכפתור בזמן טעינת היתרה
                     disabled={balance === null} 
                   >
                     {balance === null ? "Loading..." : "Create Tournament"}

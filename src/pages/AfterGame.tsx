@@ -17,57 +17,53 @@ const AfterGame = () => {
   const [tournamentName, setTournamentName] = useState<string | null>(null);
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-  // ✅ פונקציה משופרת לקבלת שמות השחקנים מהטורניר
   const getPlayersFromTournament = async () => {
     if (!tournamentId || !gameId) {
       console.log(
-        `❌ Missing data: tournamentId=${tournamentId}, gameId=${gameId}`
+        `Missing data: tournamentId=${tournamentId}, gameId=${gameId}`
       );
       return null;
     }
 
     try {
-      console.log(`🔍 Fetching tournament data for ID: ${tournamentId}`);
-      console.log(`🎮 Looking for game ID: ${gameId}`);
+      console.log(`Fetching tournament data for ID: ${tournamentId}`);
+      console.log(`Looking for game ID: ${gameId}`);
 
       let response;
 
-      // ניסיון ראשון: /api/lichess/tournaments/{id}
       console.log(
-        `📡 First attempt: ${backendUrl}/api/lichess/tournaments/${tournamentId}`
+        `First attempt: ${backendUrl}/api/lichess/tournaments/${tournamentId}`
       );
       response = await fetch(
         `${backendUrl}/api/lichess/tournaments/${tournamentId}`
       );
 
-      // אם זה לא עובד, נסה ללא /api/lichess
       if (!response.ok) {
         console.log(
-          `❌ First attempt failed (${response.status}), trying alternative path...`
+          `First attempt failed (${response.status}), trying alternative path...`
         );
         console.log(
-          `📡 Second attempt: ${backendUrl}/tournaments/${tournamentId}`
+          `Second attempt: ${backendUrl}/tournaments/${tournamentId}`
         );
         response = await fetch(`${backendUrl}/tournaments/${tournamentId}`);
       }
 
-      console.log(`📊 Tournament API response status: ${response.status}`);
+      console.log(`Tournament API response status: ${response.status}`);
       if (!response.ok) {
         console.error(
-          `❌ Tournament API failed: ${response.status} ${response.statusText}`
+          `Tournament API failed: ${response.status} ${response.statusText}`
         );
         const errorText = await response.text();
-        console.error(`❌ Error response: ${errorText}`);
+        console.error(`Error response: ${errorText}`);
         return null;
       }
 
       const tournamentData = await response.json();
-      console.log(`📦 Tournament data received:`, tournamentData);
+      console.log(`Tournament data received:`, tournamentData);
       console.log(
-        `🎯 Tournament has ${tournamentData.bracket?.length || 0} brackets`
+        `Tournament has ${tournamentData.bracket?.length || 0} brackets`
       );
 
-      // מצא את המשחק בטורניר לפי ה-gameId
       for (
         let bracketIndex = 0;
         bracketIndex < (tournamentData.bracket || []).length;
@@ -75,7 +71,7 @@ const AfterGame = () => {
       ) {
         const bracket = tournamentData.bracket[bracketIndex];
         console.log(
-          `🔎 Checking bracket ${bracketIndex} with ${
+          `Checking bracket ${bracketIndex} with ${
             bracket.matches?.length || 0
           } matches`
         );
@@ -87,11 +83,11 @@ const AfterGame = () => {
         ) {
           const match = bracket.matches[matchIndex];
           console.log(
-            `🔎 Match ${matchIndex}: ${match.player1} vs ${match.player2}, URL: ${match.lichessUrl}`
+            `Match ${matchIndex}: ${match.player1} vs ${match.player2}, URL: ${match.lichessUrl}`
           );
 
           if (match.lichessUrl && match.lichessUrl.includes(gameId)) {
-            console.log(`✅ Found match in tournament!`, match);
+            console.log(`Found match in tournament!`, match);
             return {
               player1: match.player1,
               player2: match.player2,
@@ -100,15 +96,14 @@ const AfterGame = () => {
         }
       }
 
-      console.log(`❌ No match found with gameId: ${gameId}`);
+      console.log(`No match found with gameId: ${gameId}`);
       return null;
     } catch (error) {
-      console.error("❌ Error fetching tournament data:", error);
+      console.error("Error fetching tournament data:", error);
       return null;
     }
   };
 
-  // ✅ פונקציה משופרת לבדיקת מצב המשחק
   const fetchGameResult = async () => {
     if (!gameId) {
       setLoading(false);
@@ -119,29 +114,25 @@ const AfterGame = () => {
     try {
       console.log(`Fetching game result for ID: ${gameId}`);
 
-      // ✅ קודם כל, ננסה לקבל את שמות השחקנים מהטורניר
       const playersFromTournament = await getPlayersFromTournament();
       if (playersFromTournament) {
         console.log(
-          `✅ Got player names from tournament: ${playersFromTournament.player1} vs ${playersFromTournament.player2}`
+          `Got player names from tournament: ${playersFromTournament.player1} vs ${playersFromTournament.player2}`
         );
         setWhitePlayer(playersFromTournament.player1);
         setBlackPlayer(playersFromTournament.player2);
       }
 
-      // ✅ עכשיו ננסה לקבל את המשחק מ-Lichess
       let response = await fetch(`https://lichess.org/api/game/${gameId}`, {
         headers: { Accept: "application/json" },
       });
 
-      // ✅ אם קיבלנו 404, זה אומר שהמשחק עדיין לא התחיל
       if (response.status === 404) {
         console.log(
           "Game hasn't started yet - showing game info with tournament player names"
         );
         setStatus("not_started");
 
-        // ✅ אם לא הצלחנו לקבל שמות מהטורניר, נשים ערכי ברירת מחדל
         if (!playersFromTournament) {
           setWhitePlayer("Player 1");
           setBlackPlayer("Player 2");
@@ -163,11 +154,9 @@ const AfterGame = () => {
         const data = await response.json();
         setStatus(data.status || "unknown");
 
-        // ✅ אם יש נתונים מ-Lichess, נשתמש בהם לעדכון שמות השחקנים
         const whiteId = data.players?.white?.userId;
         const blackId = data.players?.black?.userId;
 
-        // רק אם אין לנו שמות מהטורניר, ננסה לקבל מ-Lichess
         if (!playersFromTournament) {
           if (whiteId) {
             try {
@@ -205,9 +194,8 @@ const AfterGame = () => {
         setError(null);
       }
     } catch (err) {
-      console.error("❌ Error fetching game result:", err);
+      console.error("Error fetching game result:", err);
 
-      // ✅ גם במקרה של שגיאה, ננסה להציג את שמות השחקנים מהטורניר
       const playersFromTournament = await getPlayersFromTournament();
       if (playersFromTournament) {
         setWhitePlayer(playersFromTournament.player1);
@@ -232,10 +220,8 @@ const AfterGame = () => {
     const storedTournamentId = localStorage.getItem("tournamentId");
     setTournamentId(storedTournamentId);
 
-    // ✅ Run initial fetch
     fetchGameResult();
 
-    // ✅ Setup 2-second polling
     const interval = setInterval(() => {
       console.log("🔄 Auto-refreshing game result...");
       fetchGameResult();
@@ -273,17 +259,17 @@ const AfterGame = () => {
 
           const text = await response.text();
           if (!response.ok) {
-            console.error(`❌ DB update failed ${response.status}: ${text}`);
+            console.error(`DB update failed ${response.status}: ${text}`);
           } else {
             try {
               const data = JSON.parse(text);
-              console.log("✅ DB updated successfully:", data);
+              console.log("DB updated successfully:", data);
             } catch {
-              console.log("ℹ️ DB update response was not JSON:", text);
+              console.log("DB update response was not JSON:", text);
             }
           }
         } catch (err) {
-          console.error("❌ Error auto-updating DB:", err);
+          console.error("Error auto-updating DB:", err);
         }
       };
 

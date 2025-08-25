@@ -65,9 +65,8 @@ interface Tournament {
   advancingPlayers: string[];
   winner: string | null;
   status: "active" | "completed";
-  // הוספת השדות החסרים:
-  tournamentPrize?: number; // סכום הפרס (אופציונלי עם ? כי ייתכן שלא יהיה בכל טורניר)
-  entryFee?: number; // דמי כניסה (אופציונלי)
+  tournamentPrize?: number; 
+  entryFee?: number; 
 }
 interface Analysis {
   username: string;
@@ -155,7 +154,6 @@ export default function BracketTournament() {
     document.title = "Tournament Bracket - AutoMatch";
   }, []);
 
-  // פונקציה לבדיקת אם השגיאה היא שגיאת רשת
   const isNetworkError = (error: any): boolean => {
     if (!error) return false;
 
@@ -178,7 +176,6 @@ export default function BracketTournament() {
     );
   };
 
-  // פונקציית fetch עם ניסיון חוזר
   const fetchWithRetry = async (
     url: string,
     options = {},
@@ -189,42 +186,37 @@ export default function BracketTournament() {
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        console.log(`🔄 Fetch attempt ${attempt + 1}/${maxRetries} to ${url}`);
+        console.log(`Fetch attempt ${attempt + 1}/${maxRetries} to ${url}`);
         const response = await fetch(url, options);
         return response;
       } catch (err) {
         lastError = err;
-        console.error(`❌ Attempt ${attempt + 1} failed:`, err);
+        console.error(`Attempt ${attempt + 1} failed:`, err);
 
-        // אם זו לא שגיאת רשת או אם זה הניסיון האחרון, זרוק את השגיאה
         if (!isNetworkError(err) || attempt >= maxRetries - 1) {
           throw err;
         }
 
-        // המתן לפני הניסיון הבא
-        console.log(`⏱️ Waiting ${delayMs}ms before retry...`);
+        console.log(`Waiting ${delayMs}ms before retry...`);
         await new Promise((resolve) => setTimeout(resolve, delayMs));
 
-        // הגדל את זמן ההמתנה לניסיון הבא
         delayMs = delayMs * 1.5;
       }
     }
 
-    // קוד זה לא אמור להגיע לכאן, אבל ליתר בטחון
     throw lastError;
   };
 
-  // האזנה לשינויי חיבור רשת
   useEffect(() => {
     const handleOnline = () => {
-      console.log("🌐 Browser back online, refreshing data...");
+      console.log("Browser back online, refreshing data...");
       setIsOffline(false);
       setError(null);
       fetchTournament();
     };
 
     const handleOffline = () => {
-      console.log("📴 Browser offline");
+      console.log("Browser offline");
       setIsOffline(true);
       setError(
         "You are currently offline. Please check your internet connection."
@@ -243,12 +235,11 @@ export default function BracketTournament() {
   const checkCheating = async (match: Match) => {
     if (!lichessId || !match.lichessUrl) return;
 
-    // הוצאת מזהה המשחק מה-URL
     const gameId = match.lichessUrl.split("/").pop()?.split("?")[0];
     if (!gameId) return;
 
     console.log(
-      `🕵️ Checking for cheating in game ${gameId} for player ${lichessId}`
+      `Checking for cheating in game ${gameId} for player ${lichessId}`
     );
     setCheatingCheck((prev) => ({ ...prev, isChecking: true }));
 
@@ -269,7 +260,6 @@ export default function BracketTournament() {
       const data = await response.json();
       console.log("Cheating detection result:", data);
 
-      // אם נמצאה רמאות פוטנציאלית, הצג התראה
       if (data.suspiciousPlay === true) {
         setCheatingCheck({
           isChecking: false,
@@ -278,7 +268,6 @@ export default function BracketTournament() {
         });
       }
 
-      // בכל מקרה, נוסיף את המשחק לרשימת המשחקים שנבדקו
       const checkedGamesKey = `cheating-checks-${lichessId}`;
       const checkedGamesString = localStorage.getItem(checkedGamesKey) || "[]";
       const checkedGames = JSON.parse(checkedGamesString);
@@ -294,7 +283,6 @@ export default function BracketTournament() {
     }
   };
 
-  // פונקציה לטעינת נתוני הטורניר עם ניסיון חוזר
   const fetchTournament = async () => {
     if (!tournamentId) {
       setError("Tournament ID is missing");
@@ -303,11 +291,10 @@ export default function BracketTournament() {
     }
 
     try {
-      // שימוש ב-fetchWithRetry במקום fetch רגיל
       const res = await fetchWithRetry(
         `${backendUrl}/api/lichess/tournaments/${tournamentId}`,
         {},
-        3 // מספר ניסיונות מקסימלי
+        3 
       );
 
       if (!res.ok) {
@@ -315,9 +302,8 @@ export default function BracketTournament() {
       }
 
       const data = await res.json();
-      console.log("📦 Tournament data:", data);
+      console.log("Tournament data:", data);
 
-      // נקה את השגיאה ואפס את מונה הניסיונות אם הבקשה הצליחה
       setError(null);
       setRetryCount(0);
 
@@ -334,11 +320,9 @@ export default function BracketTournament() {
       }
       setTournament({ ...data });
 
-      // בדיקה אם המשתמש הוא יוצר הטורניר
       const userId = localStorage.getItem("userId");
       setIsCreator(userId === data.createdBy);
 
-      // איסוף מידע על כל השחקנים - גם כאן נשתמש ב-fetchWithRetry
       const newPlayerMap: {
         [id: string]: { username: string; rating: number };
       } = {};
@@ -369,7 +353,6 @@ export default function BracketTournament() {
 
       setPlayerMap(newPlayerMap);
 
-      // ניסיון לקדם את הטורניר אם כל המשחקים בסיבוב הנוכחי הסתיימו
       if (data.status === "active") {
         try {
           await fetchWithRetry(
@@ -385,18 +368,15 @@ export default function BracketTournament() {
         }
       }
     } catch (err) {
-      console.error("❌ Failed to fetch bracket data:", err);
+      console.error("Failed to fetch bracket data:", err);
 
-      // טיפול ספציפי בשגיאות רשת
       if (isNetworkError(err)) {
-        // הגדלת מונה הניסיונות
         const newRetryCount = retryCount + 1;
         setRetryCount(newRetryCount);
 
-        // אם לא הגענו למקסימום ניסיונות, ננסה שוב אוטומטית אחרי השהייה
         if (newRetryCount < 3) {
           console.log(
-            `🔄 Network error, will retry automatically in ${
+            `Network error, will retry automatically in ${
               2000 * newRetryCount
             }ms`
           );
@@ -425,59 +405,39 @@ export default function BracketTournament() {
   useEffect(() => {
     fetchTournament();
 
-    // פולינג לעדכון כל 15 שניות - רק אם אין שגיאה
-    // const interval = setInterval(() => {
-    //   if (!error && !isOffline) {
-    //     fetchTournament();
-    //   }
-    // }, 15000);
-
-    // return () => clearInterval(interval);
+    
   }, [tournamentId, isOffline]);
 
-  // בדיקה אוטומטית של רמאות בטעינת המסך - עם localStorage לזכירת הבדיקות הקודמות
   useEffect(() => {
     if (tournament && lichessId) {
-      // מפתח ייחודי ב-localStorage עבור רשימת המשחקים שנבדקו
       const checkedGamesKey = `cheating-checks-${lichessId}`;
 
-      // קריאת הרשימה מהאחסון המקומי, או יצירת רשימה ריקה אם לא קיימת
       const checkedGamesString = localStorage.getItem(checkedGamesKey) || "[]";
       const checkedGames = JSON.parse(checkedGamesString);
 
-      console.log(`📋 משחקים שכבר נבדקו לרמאות עבור ${lichessId}:`, checkedGames);
+      console.log(`Games that have already been tested for cheating for ${lichessId}:`, checkedGames);
 
-      // מעבר על כל הסיבובים והמשחקים בטורניר
       tournament.bracket.forEach((round) => {
         round.matches.forEach((match) => {
-          // 1. קבלת מזהה המשחק הנקי
           const gameId = match.lichessUrl?.split("/").pop()?.split("?")[0];
-          if (!gameId) return; // אם אין מזהה משחק, דלג
+          if (!gameId) return; 
 
-          // ==========================================================
-          // <<< הבלמים החדשים והחשובים >>>
-          // ==========================================================
-
-          // 2. בדיקה אם המשחק כבר נבדק בעבר
+         
           const wasAlreadyChecked = checkedGames.includes(gameId);
 
-          // 3. בדיקה אם המשחק באמת הסתיים ויש לו מנצח (לא תיקו)
           const isFinishedWithWinner = match.winner && match.winner !== null;
 
-          // 4. בדיקה אם המשתמש הנוכחי שיחק במשחק זה
           const didUserPlay = match.player1 === lichessId || match.player2 === lichessId;
 
 
-          // רק אם כל התנאים מתקיימים - בצע את הבדיקה
           if (isFinishedWithWinner && didUserPlay && !wasAlreadyChecked) {
-            console.log(`🕵️‍♂️ מפעיל בדיקת רמאות עבור משחק חדש שהסתיים: ${gameId}`);
+            console.log(`Running a cheat check for a new game that has ended: ${gameId}`);
             
             checkCheating(match).then(() => {
-              // 5. הוספת המשחק לרשימת הנבדקים *לאחר שהבדיקה הסתיימה*
               if (!checkedGames.includes(gameId)) {
                 checkedGames.push(gameId);
                 localStorage.setItem(checkedGamesKey, JSON.stringify(checkedGames));
-                console.log(`✅ המשחק ${gameId} נוסף לרשימת הנבדקים.`);
+                console.log(`Game ${gameId} has been added to the list of tests.`);
               }
             });
           }
@@ -487,7 +447,6 @@ export default function BracketTournament() {
   }, [tournament, lichessId]);
 
   const goToGame = (match: Match) => {
-    // בדיקה למשתמש אם הוא שחקן 1 או 2 ולקחת את ה-URL המתאים
     const isPlayer1 = match.player1 === lichessId;
     const isPlayer2 = match.player2 === lichessId;
 
@@ -515,7 +474,6 @@ export default function BracketTournament() {
         3
       );
 
-      // רענון הדף אחרי קידום
       window.location.reload();
     } catch (err) {
       console.error("Failed to advance tournament:", err);
@@ -530,16 +488,16 @@ export default function BracketTournament() {
   };
 
   const getMatchStatus = (match: Match) => {
-    if (match.result === "error") return "❌ Error";
-    if (match.result === "pending") return "🟡 Pending";
-    if (match.result === "in_progress") return "🟠 In Progress";
+    if (match.result === "error") return "Error";
+    if (match.result === "pending") return "Pending";
+    if (match.result === "in_progress") return "In Progress";
     if (match.result === "bye") return "✔️ Bye (auto advance)";
     if (match.winner) {
       const winnerName = playerMap[match.winner]?.username || match.winner;
-      return `✅ Winner: ${winnerName}`;
+      return ` Winner: ${winnerName}`;
     }
-    if (match.result === "draw") return "🔵 Draw";
-    return `❓ ${match.result}`;
+    if (match.result === "draw") return "Draw";
+    return ` ${match.result}`;
   };
 
   const getStatusColor = (match: Match) => {
@@ -551,7 +509,6 @@ export default function BracketTournament() {
     return "text-gray-400";
   };
 
-  // בדיקה אם המשתמש יכול לשחק במשחק מסוים
   const canUserPlay = (match: Match) => {
     if (!lichessId) return false;
     if (match.result !== "pending") return false;
@@ -560,17 +517,14 @@ export default function BracketTournament() {
     return match.player1 === lichessId || match.player2 === lichessId;
   };
 
-  // בדיקה אם המשתמש שיחק במשחק זה
   const didUserPlayInMatch = (match: Match) => {
     if (!lichessId) return false;
     return match.player1 === lichessId || match.player2 === lichessId;
   };
 
-  // נתוח המשחק עם ניסיון חוזר
   const analyzeGame = async (match: Match) => {
     if (!lichessId || !match.lichessUrl) return;
 
-    // הוצאת מזהה המשחק מה-URL
     const gameId = match.lichessUrl.split("/").pop()?.split("?")[0];
     if (!gameId) return;
 
@@ -609,7 +563,6 @@ export default function BracketTournament() {
     }
   };
 
-  // תצוגת טעינה
   if (loading) {
     return (
       <div className="min-h-screen bg-chess-dark text-white flex justify-center items-center">
@@ -618,7 +571,6 @@ export default function BracketTournament() {
     );
   }
 
-  // תצוגת שגיאה משופרת
   if (error) {
     const isNetworkIssue =
       isOffline ||
@@ -727,7 +679,7 @@ export default function BracketTournament() {
                 )}`}
           </p>
 
-          {/* תצוגת סכום הפרס */}
+          {}
           <div className="mt-3 inline-block bg-chess-dark/80 border border-chess-gold/30 rounded-lg px-6 py-3">
             <div className="flex items-center justify-center gap-2">
               <Award className="h-5 w-5 text-chess-gold" />
@@ -741,7 +693,7 @@ export default function BracketTournament() {
           </div>
         </div>
 
-        {/* תצוגת המנצח - בבלוק נפרד */}
+        {}
         <div className="text-center mb-8">
           {tournament.status === "completed" && tournament.winner && (
             <div className="mt-2 inline-block bg-chess-gold/20 rounded-lg p-4">
@@ -787,7 +739,6 @@ export default function BracketTournament() {
                     const player1Rating = playerMap[match.player1]?.rating;
                     const player2Rating = playerMap[match.player2]?.rating;
 
-                    // בדיקה אם המשחק הסתיים והמשתמש שיחק בו
                     const isCompletedMatchWhereUserPlayed =
                       match.result !== "pending" &&
                       match.result !== "in_progress" &&
@@ -888,14 +839,14 @@ export default function BracketTournament() {
                             </div>
                           </div>
 
-                          {/* מצב המשחק */}
+                          {}
                           <div className="mt-3 text-sm text-center">
                             <span className={getStatusColor(match)}>
                               {getMatchStatus(match)}
                             </span>
                           </div>
 
-                          {/* כפתורים */}
+                          {}
                           <div className="mt-4 space-y-2">
                             {canUserPlay(match) && (
                               <Button
@@ -906,7 +857,7 @@ export default function BracketTournament() {
                               </Button>
                             )}
 
-                            {/* כפתור לצפייה בשידור חי - מוצג רק אם המשחק פעיל */}
+                            {}
                             {match.lichessUrl && match.lichessUrl !== "#" && (
                               <Button
                                 onClick={() =>
@@ -921,7 +872,7 @@ export default function BracketTournament() {
                               </Button>
                             )}
 
-                            {/* כפתור לניתוח משחק - מוצג רק אם המשחק הסתיים והמשתמש שיחק בו */}
+                            {}
                             {isCompletedMatchWhereUserPlayed && (
                               <Button
                                 onClick={() => analyzeGame(match)}
@@ -957,7 +908,7 @@ export default function BracketTournament() {
                     );
                   })}
 
-                  {/* אם אין משחקים בסיבוב */}
+                  {}
                   {round.matches.length === 0 && (
                     <div className="text-center p-6 border border-dashed border-gray-700 rounded-lg">
                       <p className="text-gray-400">No matches in this round</p>
@@ -967,7 +918,7 @@ export default function BracketTournament() {
               </div>
             ))}
 
-            {/* אם הטורניר פעיל אבל עדיין אין סיבובים */}
+            {}
             {tournament.status === "active" &&
               tournament.bracket.length === 0 && (
                 <div className="w-72">
@@ -984,7 +935,7 @@ export default function BracketTournament() {
                 </div>
               )}
 
-            {/* הצגת הסיבוב הבא אם הטורניר עדיין פעיל */}
+            {}
             {tournament.status === "active" &&
               tournament.bracket.length > 0 &&
               tournament.bracket.length <
@@ -1008,7 +959,7 @@ export default function BracketTournament() {
           </div>
         </div>
 
-        {/* רשימת השחקנים */}
+        {}
         <div className="max-w-4xl mx-auto mt-10 p-6 bg-chess-dark/50 rounded-lg border border-gray-700">
           <h2 className="text-xl font-semibold mb-4 flex items-center">
             <User className="mr-2 text-chess-gold" />
@@ -1047,7 +998,7 @@ export default function BracketTournament() {
         </div>
       </div>
 
-      {/* Dialog לניתוח המשחק */}
+      {}
       <Dialog open={analysisOpen} onOpenChange={setAnalysisOpen}>
         <DialogContent className="bg-chess-dark border-gray-700 text-white max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -1078,7 +1029,7 @@ export default function BracketTournament() {
               </h3>
               <p className="text-gray-300 mb-4">{analysisError}</p>
 
-              {/* הוספת כפתור ניסיון חוזר במקרה של שגיאת רשת */}
+              {}
               {isNetworkError(analysisError) ? (
                 <div className="flex justify-center gap-3">
                   <Button
@@ -1086,7 +1037,6 @@ export default function BracketTournament() {
                       setAnalyzingGame(true);
                       setAnalysisError(null);
 
-                      // מצא את המשחק בטורניר לפי ה-gameId הנוכחי
                       const currentGameId = currentAnalysis?.gameId;
                       if (currentGameId) {
                         let foundMatch: Match | undefined;
@@ -1172,7 +1122,7 @@ export default function BracketTournament() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog להתראת רמאות */}
+      {}
       <Dialog
         open={cheatingCheck.showDialog}
         onOpenChange={(open) =>

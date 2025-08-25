@@ -79,8 +79,6 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
     const email = localStorage.getItem("email");
     const userRaw = localStorage.getItem("user");
 
-    console.log("Raw userJson from localStorage:", userRaw);
-
     if (lichessId) {
       setUserDisplay(lichessId);
       setUserTag(`@${lichessId}`);
@@ -210,7 +208,6 @@ const Navbar: React.FC<NavbarProps> = ({ showItems }) => {
 useEffect(() => {
   const checkAdminStatus = async () => {
     try {
-      // 1) ננסה להוציא userId מכל מקום אפשרי
       const userJson = localStorage.getItem("user");
       let userId: string | null = null;
 
@@ -223,24 +220,20 @@ useEffect(() => {
         } catch {}
       }
 
-      // גיבויים נפוצים
       userId = userId
         || localStorage.getItem("userId")
         || localStorage.getItem("_id");
 
-      // 2) אם אין לנו userId – אין מה לבדוק
       if (!userId) {
         setUser({ admin: false });
         return;
       }
 
-      // 3) אם יש role שמור בלוקאל־סטורג’ – נשתמש בו מיד
       const storedRole = localStorage.getItem("role");
       if (storedRole) {
         setUser({ admin: storedRole.toLowerCase() === "admin" });
       }
 
-      // 4) פניה לשרת – **ללא** תלות בטוקן (ה־endpoint גלוי)
       const response = await axios.get(
         `https://automatch.cs.colman.ac.il/auth/user/${userId}/role`
       );
@@ -248,7 +241,7 @@ useEffect(() => {
       const roleFromServer = response?.data?.role;
       setUser({ admin: String(roleFromServer).toLowerCase() === "admin" });
     } catch (error) {
-      console.error("❌ Error checking admin status:", error);
+      console.error("Error checking admin status:", error);
       setUser({ admin: false });
     }
   };
@@ -273,7 +266,7 @@ useEffect(() => {
 
     socket?.on("connect", () => {
       if (lichessId) {
-        console.log(`🔁 Reconnect — emitting joinRoom again: ${lichessId}`);
+        console.log(`Reconnect — emitting joinRoom again: ${lichessId}`);
         socket.emit("joinRoom", lichessId);
       }
     });
@@ -281,7 +274,7 @@ useEffect(() => {
     socket?.on(
       "lobbyFull",
       ({ tournamentName, lobbyUrl }: LobbyFullPayload) => {
-        console.log(`🔔 [Navbar] Received lobbyFull: ${tournamentName}`);
+        console.log(`[Navbar] Received lobbyFull: ${tournamentName}`);
         localStorage.setItem(
           "pendingNotification",
           JSON.stringify({
@@ -311,7 +304,7 @@ useEffect(() => {
         tournamentName: string;
         lobbyUrl: string;
       }) => {
-        console.log(`📩 Invite from ${from} to "${tournamentName}"`);
+        console.log(`Invite from ${from} to "${tournamentName}"`);
 
         const notif = {
           message: `${from} invited you to a tournament`,
@@ -320,7 +313,6 @@ useEffect(() => {
 
         localStorage.setItem("pendingNotification", JSON.stringify(notif));
 
-        // ✅ Notify NotificationBell
         setTimeout(() => {
           window.dispatchEvent(
             new CustomEvent("notification-update", { detail: notif })
@@ -343,7 +335,6 @@ useEffect(() => {
     };
   }, []);
 
-  // 👂 Listen for changes to the pending tournament invite
   useEffect(() => {
     const checkNotification = () => {
       const link = localStorage.getItem("pendingTournamentLink");
@@ -355,25 +346,21 @@ useEffect(() => {
     return () => clearInterval(interval);
   }, []);
 
-  // 🟢 Emit 'user_online' once on mount
   useEffect(() => {
     const socket = (window as any).socket;
     const lichessId = localStorage.getItem("lichessId");
 
     if (socket && lichessId) {
       socket.emit("user_online", { lichessId });
-      console.log("📡 Emitted user_online for", lichessId);
+      console.log("Emitted user_online for", lichessId);
     }
   }, []);
 
-  // On component mount, check for an auth token in localStorage.
   useEffect(() => {
-    // Check for token - look for either "token" or "accessToken" based on your auth implementation
     const token =
       localStorage.getItem("token") || localStorage.getItem("accessToken");
     setIsLoggedIn(!!token);
 
-    // Add an event listener to track auth state changes
     const handleStorageChange = () => {
       const currentToken =
         localStorage.getItem("token") || localStorage.getItem("accessToken");
@@ -387,7 +374,6 @@ useEffect(() => {
     };
   }, []);
 
-  // Listen for scroll events to update the navbar background.
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
@@ -403,7 +389,6 @@ useEffect(() => {
    * handleLogout clears the auth token and updates the login state.
    */
   const handleLogout = () => {
-    // Remove all auth-related items from localStorage
     localStorage.removeItem("token");
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
@@ -411,7 +396,6 @@ useEffect(() => {
     localStorage.removeItem("lichessId");
     localStorage.removeItem("email");
 
-    // Update state to reflect logged out status
     setIsLoggedIn(false);
     setUser({ admin: false });
     window.location.href = 'https://automatch.cs.colman.ac.il/'; 
@@ -440,7 +424,7 @@ useEffect(() => {
           </span>
         </a>
 
-        {/* Desktop Menu (hidden on mobile devices) */}
+        {}
         <div className="hidden md:flex items-center space-x-6">
           {showItems ? (
             <>
@@ -450,7 +434,7 @@ useEffect(() => {
             </>
           ) : (
             <>
-              {/* הוספת לינק My Tournaments כשלא בדף הראשי */}
+              {}
               {isLoggedIn && (
                 <Link to="/my-tournaments">
                   <span className="text-white/80 hover:text-chess-gold transition-colors duration-200 font-medium relative after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:w-0 after:bg-chess-gold after:transition-all after:duration-300 hover:after:w-full">
@@ -461,11 +445,11 @@ useEffect(() => {
             </>
           )}
 
-          {/* Action buttons for desktop */}
+          {}
           <div className="flex items-center space-x-3 ml-4">
             <NotificationBell />
 
-            {/* 🆕 הוספת AddFriendsDropdown - רק כשמחובר */}
+            {}
             {isLoggedIn && <AddFriendsDropdown />}
 
             <Link to="/find-match">
@@ -474,10 +458,8 @@ useEffect(() => {
               </Button>
             </Link>
             {isLoggedIn ? (
-              // Show the profile dropdown ONLY when logged in
               <ProfileDropdown onLogout={handleLogout} user={user} />
             ) : (
-              // Show login/register buttons when NOT logged in
               <div className="flex items-center space-x-3">
                 <Link to="/login">
                   <Button
@@ -500,7 +482,7 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Mobile Menu Button (visible only on mobile devices) */}
+        {}
         <div className="flex md:hidden">
           <Button
             variant="ghost"
@@ -518,7 +500,7 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {}
       {isMobileMenuOpen && (
         <div className="md:hidden absolute top-full left-0 right-0 bg-chess-dark/95 backdrop-blur-md shadow-lg animate-slide-down border-b border-white/10 p-4">
           <div className="flex flex-col space-y-4 py-2">
@@ -545,7 +527,7 @@ useEffect(() => {
               </>
             ) : (
               <>
-                {/* הוספת My Tournaments במובייל - רק כשמחובר */}
+                {}
                 {isLoggedIn && (
                   <Link
                     to="/my-tournaments"
@@ -566,14 +548,14 @@ useEffect(() => {
               Contact
             </MobileNavLink>
 
-            {/* 🆕 הוסף Add Friends גם במובייל - רק כשמחובר */}
+            {}
             {isLoggedIn && (
               <div className="px-3 py-2 border-t border-white/10 pt-4">
                 <AddFriendsDropdown />
               </div>
             )}
 
-            {/* Action buttons for mobile */}
+            {}
             <div className="grid grid-cols-2 gap-3 pt-3">
               <Link to="/find-match">
                 <Button className="primary-btn w-full" size="sm">

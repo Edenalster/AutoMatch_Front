@@ -52,25 +52,25 @@ const GameLobby = () => {
       const data = await res.json();
       setFriends(data.friends || []);
     } catch (err) {
-      console.error("❌ Failed to fetch friends:", err);
+      console.error("Failed to fetch friends:", err);
     }
   };
 
   useEffect(() => {
     const stored = localStorage.getItem("lichessId");
     if (stored) {
-      console.log("✅ lichessId loaded:", stored);
+      console.log("lichessId loaded:", stored);
       setLichessId(stored);
     } else {
-      console.warn("❌ lichessId not found in localStorage");
+      console.warn("lichessId not found in localStorage");
     }
 
     const socket = (window as any).socket;
     if (socket && typeof socket.emit === "function") {
-      console.log("✅ socket is ready");
+      console.log("socket is ready");
       setSocketReady(true);
     } else {
-      console.warn("❌ socket is not initialized on window");
+      console.warn("socket is not initialized on window");
     }
   }, []);
 
@@ -125,12 +125,11 @@ const GameLobby = () => {
     };
   }, []);
 
-  // שימוש ב-useRef במקום useState למטמון כי אין צורך לרנדר מחדש כשהמטמון משתנה
   const playersCacheRef = useRef<{ [id: string]: Player }>({});
 
   // Fetch tournament data and update state
   const fetchTournament = async () => {
-    console.log("🔄 Fetching tournament data...");
+    console.log("Fetching tournament data...");
     try {
       const res = await fetch(
         `${backendUrl}/api/lichess/tournaments/${tournamentId}`
@@ -138,7 +137,7 @@ const GameLobby = () => {
 
       const data = await res.json();
 
-      console.log("🔍 Tournament data fetched:", data);
+      console.log("Tournament data fetched:", data);
 
       if (!data) {
         console.log("Tournament not found");
@@ -150,19 +149,18 @@ const GameLobby = () => {
       setRankRange(data.rankRange || null);
       localStorage.setItem("tournamentName1", data.tournamentName);
 
-      // חשוב: שמירת ה-ID של הטורניר בלוקל סטורג' כדי שכל שחקן יוכל להגיע לעמוד ה-bracket
       localStorage.setItem("tournamentId", data._id);
-      console.log("✅ Saved tournament ID in localStorage:", data._id);
+      console.log("Saved tournament ID in localStorage:", data._id);
 
       console.log("name1:", data.tournamentName);
 
       // Check if the current user is the creator
       if (userId && String(data.createdBy) === String(userId)) {
         setIsCreator(true);
-        console.log("✅ User is the creator of this tournament.");
+        console.log("User is the creator of this tournament.");
       } else {
         console.log(
-          "🟥 Creator check failed —",
+          "Creator check failed —",
           "\nuserId:",
           userId,
           "\ndata.createdBy:",
@@ -173,21 +171,19 @@ const GameLobby = () => {
       // Check if the user has joined the tournament
       if (data.playerIds.includes(lichessId)) {
         setHasJoined(true);
-        console.log(`🎮 User has already joined the tournament.`);
+        console.log(`User has already joined the tournament.`);
       }
 
       // Enrich players with their ratings
       const enrichedPlayers = await Promise.all(
         data.playerIds.map(async (id: string) => {
           try {
-            // שימוש במטמון פנימי אם יש
             if (playersCacheRef.current[id]) {
               return playersCacheRef.current[id];
             }
 
             const res = await fetch(`https://lichess.org/api/user/${id}`);
             if (!res.ok) {
-              // אם יש rate limit, החזר מידע ברירת מחדל
               if (res.status === 429) {
                 return {
                   id,
@@ -207,7 +203,6 @@ const GameLobby = () => {
               avatar: "/placeholder.svg",
             };
 
-            // שמירה במטמון פנימי
             playersCacheRef.current[id] = player;
             return player;
           } catch {
@@ -226,7 +221,7 @@ const GameLobby = () => {
       // Auto-start tournament if it is full and hasn't started yet
       const tournamentStarted = data.bracket?.length > 0;
       console.log(
-        "🧠 Start check:",
+        "Start check:",
         "\n- playerIds:",
         data.playerIds,
         "\n- maxPlayers:",
@@ -243,7 +238,7 @@ const GameLobby = () => {
         userId &&
         String(data.createdBy) === String(userId)
       ) {
-        console.log("🧠 Auto-starting tournament...");
+        console.log("Auto-starting tournament...");
 
         try {
           const response = await fetch(
@@ -254,17 +249,16 @@ const GameLobby = () => {
           );
 
           if (!response.ok) {
-            console.error(`❌ Failed to start tournament: ${response.status}`);
+            console.error(`Failed to start tournament: ${response.status}`);
 
-            // אם זה rate limit, נסה שוב מאוחר יותר
             if (response.status === 429) {
-              console.log("⏱️ Rate limited. Will retry on next poll.");
+              console.log("⏱Rate limited. Will retry on next poll.");
             }
           } else {
-            console.log("✅ Tournament started successfully!");
+            console.log("Tournament started successfully!");
           }
         } catch (err) {
-          console.error("❌ Error starting tournament:", err);
+          console.error("Error starting tournament:", err);
         }
       }
 
@@ -275,12 +269,12 @@ const GameLobby = () => {
       );
 
       if (match?.lichessUrl && !isRedirecting) {
-        console.log("🚀 Redirecting to ChessBoard:", match.lichessUrl);
+        console.log(" Redirecting to ChessBoard:", match.lichessUrl);
         setIsRedirecting(true);
         navigate(`/chessboard?gameUrl=${encodeURIComponent(match.lichessUrl)}`);
       }
     } catch (err) {
-      console.error("❌ Error fetching tournament:", err);
+      console.error("Error fetching tournament:", err);
     }
   };
   useEffect(() => {
@@ -295,7 +289,7 @@ const GameLobby = () => {
       tournamentName: string;
       lobbyUrl: string;
     }) => {
-      console.log(`📨 Received invite from ${from} to ${tournamentName}`);
+      console.log(`Received invite from ${from} to ${tournamentName}`);
 
       // Save the invite locally
       localStorage.setItem("pendingTournamentLink", lobbyUrl);
@@ -312,13 +306,13 @@ const GameLobby = () => {
     const socket = (window as any).socket;
     if (!socket || !lichessId || !hasJoined) {
       console.warn(
-        "🟥 Waiting for socket, lichessId, or hasJoined to be ready"
+        "Waiting for socket, lichessId, or hasJoined to be ready"
       );
       return;
     }
     fetchFriends();
 
-    console.log("🧠 Checking joinRoom preconditions", {
+    console.log("Checking joinRoom preconditions", {
       socketExists: true,
       socketConnected: socket.connected,
       lichessId,
@@ -326,18 +320,18 @@ const GameLobby = () => {
     });
 
     if (socket.connected) {
-      console.log("🛠 Emitting joinRoom for", lichessId);
+      console.log("Emitting joinRoom for", lichessId);
       socket.emit("joinRoom", lichessId);
     } else {
       socket.on("connect", () => {
-        console.log("🔄 Reconnected, emitting joinRoom for", lichessId);
+        console.log("Reconnected, emitting joinRoom for", lichessId);
         socket.emit("joinRoom", lichessId);
       });
     }
   }, [lichessId, hasJoined, socketReady]);
 
   useEffect(() => {
-    fetchTournament(); // ביצוע ראשוני
+    fetchTournament();
     const interval = setInterval(fetchTournament, 5000); // Poll every 5 seconds
     return () => clearInterval(interval); // Cleanup interval on component unmount
   }, [lichessId, userId]);
@@ -360,17 +354,17 @@ const GameLobby = () => {
       );
 
       if (response.ok) {
-        console.log(`📨 Invite sent successfully to ${friendId}`);
+        console.log(`Invite sent successfully to ${friendId}`);
       } else {
-        console.warn(`❌ Failed to invite ${friendId}`, await response.text());
+        console.warn(`Failed to invite ${friendId}`, await response.text());
       }
     } catch (err) {
-      console.error("❌ Error sending invite:", err);
+      console.error("Error sending invite:", err);
     }
   };
 
   const handleJoin = async () => {
-    console.log("🔄 User attempting to join the tournament...");
+    console.log("User attempting to join the tournament...");
     try {
       const res = await fetch(
         `${backendUrl}/api/lichess/tournaments/${tournamentId}/join`,
@@ -382,9 +376,9 @@ const GameLobby = () => {
       );
       await res.json();
       setHasJoined(true);
-      console.log(`🎮 User joined the tournament.`);
+      console.log(`User joined the tournament.`);
     } catch (err) {
-      console.error("❌ Failed to join lobby:", err);
+      console.error(" Failed to join lobby:", err);
     }
   };
 
@@ -397,13 +391,12 @@ const GameLobby = () => {
       const idFromPath = currentPath.split("/").pop();
 
       if (idFromLink === idFromPath) {
-        console.log("🧹 Cleared stale notification – already in lobby");
+        console.log(" Cleared stale notification – already in lobby");
         localStorage.removeItem("pendingTournamentLink");
       }
     }
   }, [tournamentId]);
 
-  // הוספת כפתור לעבור ישירות לעמוד ה-bracket
   const handleGoToBracket = () => {
     navigate(`/bracket/${tournamentId}`);
   };
@@ -471,7 +464,7 @@ const GameLobby = () => {
                     </button>
                   )}
 
-                  {/* כפתור חדש למעבר לדף ה-bracket */}
+                  {}
                   {hasJoined && (
                     <button
                       onClick={handleGoToBracket}

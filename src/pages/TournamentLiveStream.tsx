@@ -1,4 +1,3 @@
-// TournamentLiveStream.tsx - Real live chess viewing with chessboard.js
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
@@ -7,7 +6,7 @@ import Navbar from '../components/Navbar';
 import { Button } from '../components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
-// Types
+
 interface Tournament {
   id: string;
   name: string;
@@ -50,13 +49,10 @@ interface GameState {
   btime?: number; // anchor time for black (ms) at the last server event
   status: string;
   winner?: string;
-  // זמן האירוע כפי שהתרחש בשרת (בקירוב), לא זמן הקבלה אצלנו
   anchorServerTime?: number;
-  // בתור מי? נגזר מה-FEN
   activeColor?: 'w' | 'b';
 }
 
-// שעון מסונכרן לשרת (offset, rtt)
 interface ClockSync {
   offsetMs: number; // serverNow ≈ clientNow + offsetMs
   rttMs: number;    // round-trip time estimation
@@ -80,14 +76,12 @@ const TournamentLiveStream: React.FC = () => {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [debug, setDebug] = useState<string[]>([]);
   
-  // Client animation tick (UI-only)
 const [, setTick] = useState<number>(0);
   useEffect(() => {
     const id = setInterval(() => setTick((t) => (t + 1) % 1_000_000), 100); // 10Hz
     return () => clearInterval(id);
   }, []);
 
-  // ---------- Clock Sync (frontend-only) ----------
   const [clockSync, setClockSync] = useState<ClockSync>({
     offsetMs: 0,
     rttMs: 300,
@@ -104,19 +98,15 @@ const [, setTick] = useState<number>(0);
     return env || window.location.origin;
   }, []);
 
-  // קבלת זמן שרת דרך כותרת Date + הערכת RTT → חישוב offset
   const syncClockOnce = async () => {
     try {
-      // נשתמש ב-endpoint בטוח וקיים (ברירת מחדל: origin). מוסיפים פרמטר כדי לעקוף קאש.
       const url = `${backendUrl}/__clock_sync__?t=${Date.now()}`;
       const startMono = performance.now();
       const startWall = Date.now();
 
-      // לא כל שרת תומך HEAD, לכן GET קצר עם no-store
       const res = await fetch(url, {
         method: 'GET',
         cache: 'no-store',
-        // עדיף לא לבקש body; אם השרת מחזיר 404 זה עדיין תקף בשביל Date header (רוב השרתים מחזירים Date)
       });
 
       const endMono = performance.now();
@@ -130,14 +120,12 @@ const [, setTick] = useState<number>(0);
       }
 
       const serverResponseWall = new Date(dateHeader).getTime();
-      // הערכת זמן השרת ברגע האמצע של ה־RTT
-      const estimatedServerAtMid = serverResponseWall; // Date header משקף זמן יצירת התשובה בשרת
+      const estimatedServerAtMid = serverResponseWall; 
       const estimatedClientAtMid = startWall + (endWall - startWall) / 2;
       const newOffset = estimatedServerAtMid - estimatedClientAtMid;
 
-      // החלקה קלה (EMA) כדי לייצב
       setClockSync(prev => {
-        const alpha = 0.3; // משקל ערך חדש
+        const alpha = 0.3; 
         const blendedOffset = prev.lastSyncAt === 0 ? newOffset : (1 - alpha) * prev.offsetMs + alpha * newOffset;
         const blendedRtt = prev.lastSyncAt === 0 ? rtt : (1 - alpha) * prev.rttMs + alpha * rtt;
         addDebug(`Clock sync: offset=${Math.round(blendedOffset)}ms, rtt=${Math.round(blendedRtt)}ms`);
@@ -149,14 +137,11 @@ const [, setTick] = useState<number>(0);
   };
 
   useEffect(() => {
-    // סנכרון מיד בהעלאה
     syncClockOnce();
-    // ועוד סנכרון תקופתי
     const id = setInterval(syncClockOnce, 60_000);
     return () => clearInterval(id);
   }, [backendUrl]);
 
-  // פונקציה לקבל "זמן שרת" נוכחי משוער
   const serverNow = () => Date.now() + clockSync.offsetMs;
 
   // ---------- Simple chess board state ----------
@@ -247,7 +232,7 @@ const [, setTick] = useState<number>(0);
 
             for (const line of lines) {
               if (!line.trim()) continue;
-              const receiveMono = performance.now(); // זמן קבלה (מונוטוני)
+              const receiveMono = performance.now(); 
               try {
                 const data = JSON.parse(line);
                 processGameData(data, receiveMono);
@@ -295,12 +280,10 @@ const processGameData = (data: any, _receiveMono?: number) => {
     try {
       addDebug(`Received game data: ${JSON.stringify(data).substring(0, 100)}`);
 
-      // חישוב זמן האירוע המשוער בשרת: serverNow (ברגע הקבלה) פחות RTT/2
-      // הערה: ה-RTT נמדד מול backend שלך ולא מול lichess, אבל עדיין מספק תיקון טוב לרוב המקרים.
+    
       const approxServerEventTime = serverNow() - (clockSync.rttMs / 2);
 
       if (data.id && data.variant) {
-        // מצב התחלתי
         addDebug(`Initial game state - turns: ${data.turns}, status: ${data.status?.name}`);
 
         const gs: GameState = {
@@ -320,14 +303,12 @@ const processGameData = (data: any, _receiveMono?: number) => {
         }
 
       } else if (data.fen) {
-        // עדכון מהלך + FEN
         addDebug(`Move update - FEN: ${data.fen}, last move: ${data.lm || 'none'}`);
         updateBoardPosition(data.fen);
 
         const active = colorFromFEN(data.fen);
         const gs: GameState = {
           moves: data.lm || '',
-          // זמנים מה-stream בשניות → ms
           wtime: data.wc ? data.wc * 1000 : undefined,
           btime: data.bc ? data.bc * 1000 : undefined,
           status: 'started',
@@ -346,7 +327,6 @@ const processGameData = (data: any, _receiveMono?: number) => {
     }
   };
 
-  // חישוב תצוגת זמן עם עיגון לשרת
   const formatTime = (ms: number) => {
     const secs = Math.max(0, Math.floor(ms / 1000));
     const minutes = Math.floor(secs / 60);
@@ -361,16 +341,13 @@ const processGameData = (data: any, _receiveMono?: number) => {
       return formatTime(baseTime);
     }
 
-    // מי בתור?
     const whiteToMove = gameState.activeColor === 'w';
     const isActive = isWhite ? whiteToMove : !whiteToMove;
 
     if (!isActive) {
-      // לא בתורו → הזמן קופא על ה-baseTime מה-stream
       return formatTime(baseTime);
     }
 
-    // ריצה לפי זמן שרת נוכחי מול זמן האירוע (anchor)
     const elapsed = Math.max(0, serverNow() - gameState.anchorServerTime);
     const remaining = Math.max(0, baseTime - elapsed);
     return formatTime(remaining);

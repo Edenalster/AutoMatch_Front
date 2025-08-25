@@ -50,7 +50,7 @@ const PortalTransactions = () => {
         const data = await res.json();
         setTransactions(data.transactions);
       } catch (error) {
-        console.error("❌ Failed to fetch transactions:", error);
+        console.error("Failed to fetch transactions:", error);
       } finally {
         setLoading(false);
       }

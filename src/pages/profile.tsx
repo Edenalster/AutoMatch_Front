@@ -159,7 +159,7 @@ const ProfilePage = () => {
           const balanceData = await balanceRes.json();
           balance = balanceData.balance ?? 0;
         } catch (e) {
-          console.warn("⚠️ Failed to fetch user balance:", e);
+          console.warn("Failed to fetch user balance:", e);
         }
 
         interface Game {
@@ -198,7 +198,7 @@ const ProfilePage = () => {
                 amount = earningsJson.amount;
               }
             } catch {
-              console.warn("❌ Could not fetch earnings for", game.id);
+              console.warn(" Could not fetch earnings for", game.id);
             }
 
             return {
@@ -266,7 +266,7 @@ const ProfilePage = () => {
               prizePool = 0;
             }
           } catch {
-            console.warn("❌ Could not fetch tournament info for", game.id);
+            console.warn("Could not fetch tournament info for", game.id);
           }
 
           if (tournamentName !== "Online Game") {

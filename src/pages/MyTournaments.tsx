@@ -67,12 +67,10 @@ const MyTournaments = () => {
 
       const data = await response.json();
 
-      // סנן רק טורנירים שהמשתמש משתתף בהם
       const myTournaments = (data.tournaments || []).filter(
         (tournament: Tournament) => tournament.playerIds.includes(lichessId)
       );
 
-      // מיין לפי תאריך יצירה (החדשים ביותר ראשונים)
       myTournaments.sort(
         (a: Tournament, b: Tournament) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -80,7 +78,7 @@ const MyTournaments = () => {
 
       setTournaments(myTournaments);
     } catch (err) {
-      console.error("❌ Error fetching tournaments:", err);
+      console.error(" Error fetching tournaments:", err);
       setError(
         err instanceof Error ? err.message : "Failed to load tournaments"
       );
@@ -92,7 +90,6 @@ const MyTournaments = () => {
   useEffect(() => {
     fetchMyTournaments();
 
-    // רענון כל 10 שניות
     const interval = setInterval(fetchMyTournaments, 10000);
     return () => clearInterval(interval);
   }, [lichessId]);
@@ -133,12 +130,10 @@ const MyTournaments = () => {
     let targetTime: Date;
     let label: string;
 
-    // אם הטורניר לא התחיל עדיין
     if (tournament.bracket.length === 0 && tournament.lobbyExpiredAt) {
       targetTime = new Date(tournament.lobbyExpiredAt);
       label = "Lobby expires in";
     }
-    // אם הטורניר בתהליך
     else if (tournament.tournamentExpiredAt) {
       targetTime = new Date(tournament.tournamentExpiredAt);
       label = "Tournament expires in";

@@ -1,4 +1,3 @@
-// SearchResults.tsx עם כפתור לכניסה ל-bracket
 import { useEffect, useState } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
@@ -38,19 +37,19 @@ const SearchResults = () => {
         const data = await res.json();
   
         const filtered = (data.tournaments ?? [])
-        .filter((t: Tournament) => t.status !== "completed" && t.status !== "expired")// ✅ hide completed
+        .filter((t: Tournament) => t.status !== "completed" && t.status !== "expired")
           .sort((a: Tournament, b: Tournament) => b._id.localeCompare(a._id)); // newest first
   
         setTournaments(filtered);
       } catch (err) {
-        console.error("❌ Failed to fetch tournaments:", err);
+        console.error("Failed to fetch tournaments:", err);
         setTournaments([]);
       }
     };
   
     fetchTournaments();
   
-    const interval = setInterval(fetchTournaments, 5000); // 🕒 refresh every 5 sec
+    const interval = setInterval(fetchTournaments, 5000); // refresh every 5 sec
     return () => clearInterval(interval);
   }, [entryFee, rankRange]);
 
@@ -93,12 +92,11 @@ const SearchResults = () => {
       if (!res.ok) throw new Error("Join failed");
       navigate(`/lobby/${tournamentId}`);
     } catch (err) {
-      console.error("❌ Failed to join tournament:", err);
+      console.error(" Failed to join tournament:", err);
       alert("Failed to join tournament.");
     }
   };
 
-  // פונקציה חדשה לניתוב לדף ה-bracket של טורניר
   const viewBracket = (tournamentId: string) => {
     navigate(`/bracket/${tournamentId}`);
   };
@@ -176,7 +174,7 @@ const SearchResults = () => {
                   onJoin={() => handleJoin(tournament._id)}
                 />
                 
-                {/* הוספת כפתור לצפייה בטורניר */}
+                {}
                 <div className="flex space-x-2 mt-2">
   <Button 
     onClick={() => viewBracket(tournament._id)}

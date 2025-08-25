@@ -65,10 +65,10 @@ const PortalTournaments = () => {
         if (data && Array.isArray(data.tournaments)) {
           setTournaments(data.tournaments);
         } else {
-          console.error("⚠ Unexpected response structure:", data);
+          console.error("Unexpected response structure:", data);
         }
       } catch (err) {
-        console.error("⚠ Failed to fetch tournaments:", err);
+        console.error("Failed to fetch tournaments:", err);
       }
     };
     fetchTournaments();
@@ -85,7 +85,7 @@ const PortalTournaments = () => {
           revenue: data.revenue ?? 0,
         });
       })
-      .catch(err => console.error("⚠ Dashboard fetch error:", err));
+      .catch(err => console.error("Dashboard fetch error:", err));
   }, []);
 
   return (

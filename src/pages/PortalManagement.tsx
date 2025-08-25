@@ -21,11 +21,11 @@ const PortalManagement = () => {
 
   const [userData, setUserData] = useState({
     name: "",
-    role: "User",      // ברירת מחדל תצוגתית
+    role: "User",      
     avatarUrl: "",
     email: "",
   });
-  const [loading, setLoading] = useState(true);   // לטובת gating עד שנדע role
+  const [loading, setLoading] = useState(true);   
 
   useEffect(() => {
     const storedEmail  = localStorage.getItem("email") || "";
@@ -52,20 +52,17 @@ const PortalManagement = () => {
         } else if (parsed?.email) {
           displayName = parsed.email.split("@")[0];
           email = parsed.email;
-          // בבקאנד השדה נקרא imgUrl, ננסה גם avatarUrl ליתר בטחון
           avatarUrl = parsed.imgUrl ?? parsed.avatarUrl ?? "";
         }
       }
     } catch {}
 
-    // סט ראשוני
     setUserData((prev) => ({ ...prev, name: displayName, email, avatarUrl }));
 
-    // שליפת תפקיד מהשרת
     (async () => {
       try {
         if (!userId) {
-          // אין משתמש — נחזיר לדף הבית/לוגין
+         
           navigate("/");
           return;
         }
@@ -76,7 +73,7 @@ const PortalManagement = () => {
         });
 
         if (!res.ok) {
-          // לא מורשה או שגיאה — נחזיר הביתה
+          
           navigate("/");
           return;
         }
@@ -86,9 +83,8 @@ const PortalManagement = () => {
 
         setUserData((prev) => ({ ...prev, role: pretty }));
 
-        // ✅ Gating: רק אדמין נכנס לפורטל
         if (data.role !== "admin") {
-          navigate("/"); // או עמוד אחר (למשל /dashboard רגיל)
+          navigate("/"); 
           return;
         }
       } catch (e) {
@@ -101,7 +97,6 @@ const PortalManagement = () => {
   }, [navigate]);
 
   if (loading) {
-    // ספינר קטן בזמן בדיקת הרשאות
     return (
       <div className="min-h-screen bg-chess-dark flex items-center justify-center text-white/80">
         Checking permissions…
@@ -109,7 +104,6 @@ const PortalManagement = () => {
     );
   }
 
-  // אם הגענו לכאן — המשתמש אדמין
   return (
     <div className="min-h-screen bg-chess-dark">
       <Navbar showItems={false} />

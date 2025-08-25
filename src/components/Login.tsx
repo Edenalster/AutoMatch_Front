@@ -1,95 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
-// import { Input } from "../components/ui/input";
 import { Trophy } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-// import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
-// import axios from "axios";
 
-// interface IUser {
-//   email: string;
-//   password?: string;
-//   imgUrl?: string;
-//   _id: string;
-//   accessToken?: string;
-//   refreshToken?: string;
-// }
+
+
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 console.log("backendUrl =", backendUrl);
 
 const Login: React.FC = () => {
-  // const [formData, setFormData] = useState({ email: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
-  // const navigate = useNavigate();
   const location = useLocation();
 
-  // const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   const { name, value } = e.target;
-  //   setFormData(prev => ({ ...prev, [name]: value }));
-  // };
-
-  // const handleSubmit = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   setIsLoading(true);
-  //   setMessage("");
-  //   try {
-  //     console.log("Sending login request with:", formData);
-  //     localStorage.setItem("formEmail", formData.email);
-  //     const response = await axios.post(`${backendUrl}/auth/login`, formData);
-  //     if (response.status === 200) {
-  //       const data = response.data;
-  //       console.log("Login successful!", data);
-  //       if (data.accessToken) {
-  //         localStorage.setItem("token", data.accessToken);
-  //         localStorage.setItem("user", data._id);
-  //         localStorage.setItem("email", data.email || formData.email);
-  //       }
-  //       setMessage("Login successful!");
-  //       // full reload to ensure token is read before any redirects
-  //       window.location.replace("/");
-  //     } else {
-  //       setMessage(response.data.message || "Failed to log in.");
-  //     }
-  //   } catch (error: any) {
-  //     if (axios.isAxiosError(error)) {
-  //       console.error("Login failed:", error.response?.data || error.message);
-  //       setMessage("Invalid email or password.");
-  //     } else {
-  //       console.error("Login failed:", error);
-  //       setMessage("An unexpected error occurred.");
-  //     }
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-
-  // const googleSignin = async (credentialResponse: CredentialResponse): Promise<IUser> => {
-  //   const res = await axios.post(`${backendUrl}/auth/google`, credentialResponse);
-  //   console.log("Google Signin success!", res.data);
-  //   if (res.data.accessToken) {
-  //     localStorage.setItem("token", res.data.accessToken);
-  //     localStorage.setItem("user", res.data._id);
-  //     localStorage.setItem("email", res.data.email || "");
-  //   }
-  //   return res.data;
-  // };
-
-  // const onGoogleLoginSuccess = async (credentialResponse: CredentialResponse) => {
-  //   console.log("Google login successful!", credentialResponse);
-  //   try {
-  //     await googleSignin(credentialResponse);
-  //     window.location.replace("/");
-  //   } catch (error) {
-  //     console.log("Google Signin error!", error);
-  //     setMessage("Google sign-in failed. Please try again.");
-  //   }
-  // };
-
-  // const onGoogleLoginError = () => {
-  //   console.error("Google login failed!");
-  //   setMessage("Google sign-in failed. Please try again or use email login.");
-  // };
+  
 
   console.log(setIsLoading);
   const handleLichessLogin = () => {
