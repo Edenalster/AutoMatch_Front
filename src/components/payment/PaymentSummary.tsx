@@ -39,10 +39,10 @@ import {
           );
   
         const data = await res.json();
-        console.log("✅ Payment success, new balance:", data.balance);
+        console.log("Payment success, new balance:", data.balance);
         navigate("/profile");
       } catch (err) {
-        console.error("❌ Payment failed:", err);
+        console.error("Payment failed:", err);
         alert("Failed to complete payment. Please try again.");
       } finally {
         setLoading(false);

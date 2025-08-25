@@ -13,7 +13,8 @@ import {
 } from "../components/ui/dropdown-menu";
 import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar";
 import NotificationBell from "./NotificationBell";
-import AddFriendsDropdown from "./AddFriendsDropdown"; // הוסף את הייבוא הזה
+import AddFriendsDropdown from "./AddFriendsDropdown"; 
+import axios from "axios";
 
 /**
  * Props for navigation link components.
@@ -78,7 +79,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
     const email = localStorage.getItem("email");
     const userRaw = localStorage.getItem("user");
 
-    console.log("📦 Raw userJson from localStorage:", userRaw);
+    console.log("Raw userJson from localStorage:", userRaw);
 
     if (lichessId) {
       setUserDisplay(lichessId);
@@ -205,39 +206,56 @@ const Navbar: React.FC<NavbarProps> = ({ showItems }) => {
   const [tournamentLink, setTournamentLink] = useState<string | null>(null);
   const [user, setUser] = useState<{ admin?: boolean }>({});
   console.log(tournamentLink);
-  useEffect(() => {
-    const userJson = localStorage.getItem("user");
-    console.log("📦 Raw userJson from localStorage:", userJson);
 
-    const ADMIN_IDS = ["edenals", "noyamsallem199", "edenyoav"];
-
+useEffect(() => {
+  const checkAdminStatus = async () => {
     try {
-      if (userJson && userJson.trim().startsWith("{")) {
-        const parsed = JSON.parse(userJson);
-        console.log("🧠 Parsed userData:", parsed);
+      // 1) ננסה להוציא userId מכל מקום אפשרי
+      const userJson = localStorage.getItem("user");
+      let userId: string | null = null;
 
-        const rawAdmin = parsed.Admin ?? parsed.admin;
-        const isAdminLichess = ADMIN_IDS.includes(parsed.lichessId);
-
-        const isAdmin =
-          rawAdmin === true ||
-          rawAdmin === "true" ||
-          rawAdmin === "True" ||
-          isAdminLichess;
-
-        console.log("✅ Final isAdmin value:", isAdmin);
-        setUser({ admin: isAdmin });
-      } else {
-        // Fallback if userJson is not a JSON string
-        const lichessId = localStorage.getItem("lichessId");
-        const isAdminLichess = ADMIN_IDS.includes(lichessId ?? "");
-        console.log("♟️ Fallback lichessId:", lichessId);
-        setUser({ admin: isAdminLichess });
+      if (userJson) {
+        try {
+          const parsed = JSON.parse(userJson);
+          if (parsed && typeof parsed === "object" && parsed._id) {
+            userId = parsed._id;
+          }
+        } catch {}
       }
-    } catch (e) {
-      console.error("❌ Failed to parse userJson:", e);
+
+      // גיבויים נפוצים
+      userId = userId
+        || localStorage.getItem("userId")
+        || localStorage.getItem("_id");
+
+      // 2) אם אין לנו userId – אין מה לבדוק
+      if (!userId) {
+        setUser({ admin: false });
+        return;
+      }
+
+      // 3) אם יש role שמור בלוקאל־סטורג’ – נשתמש בו מיד
+      const storedRole = localStorage.getItem("role");
+      if (storedRole) {
+        setUser({ admin: storedRole.toLowerCase() === "admin" });
+      }
+
+      // 4) פניה לשרת – **ללא** תלות בטוקן (ה־endpoint גלוי)
+      const response = await axios.get(
+        `https://automatch.cs.colman.ac.il/auth/user/${userId}/role`
+      );
+
+      const roleFromServer = response?.data?.role;
+      setUser({ admin: String(roleFromServer).toLowerCase() === "admin" });
+    } catch (error) {
+      console.error("❌ Error checking admin status:", error);
+      setUser({ admin: false });
     }
-  }, []);
+  };
+
+  checkAdminStatus();
+}, []);
+
 
   interface LobbyFullPayload {
     tournamentName: string;
@@ -395,6 +413,9 @@ const Navbar: React.FC<NavbarProps> = ({ showItems }) => {
 
     // Update state to reflect logged out status
     setIsLoggedIn(false);
+    setUser({ admin: false });
+    window.location.href = 'https://automatch.cs.colman.ac.il/'; 
+
   };
 
   return (

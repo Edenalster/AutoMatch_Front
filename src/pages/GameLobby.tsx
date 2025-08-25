@@ -41,10 +41,7 @@ const GameLobby = () => {
     max: number;
   } | null>(null);
 
-  // interface LobbyFullPayload {
-  //   tournamentName: string;
-  //   lobbyUrl: string;
-  // }
+
   const [friends, setFriends] = useState<
     { lichessId: string; isOnline: boolean }[]
   >([]);

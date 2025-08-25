@@ -15,7 +15,7 @@ import { Link, useLocation } from "react-router-dom";
 //   refreshToken?: string;
 // }
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
-console.log("🔗 backendUrl =", backendUrl);
+console.log("backendUrl =", backendUrl);
 
 const Login: React.FC = () => {
   // const [formData, setFormData] = useState({ email: "", password: "" });
@@ -34,12 +34,12 @@ const Login: React.FC = () => {
   //   setIsLoading(true);
   //   setMessage("");
   //   try {
-  //     console.log("🔍 Sending login request with:", formData);
+  //     console.log("Sending login request with:", formData);
   //     localStorage.setItem("formEmail", formData.email);
   //     const response = await axios.post(`${backendUrl}/auth/login`, formData);
   //     if (response.status === 200) {
   //       const data = response.data;
-  //       console.log("✅ Login successful!", data);
+  //       console.log("Login successful!", data);
   //       if (data.accessToken) {
   //         localStorage.setItem("token", data.accessToken);
   //         localStorage.setItem("user", data._id);
@@ -53,10 +53,10 @@ const Login: React.FC = () => {
   //     }
   //   } catch (error: any) {
   //     if (axios.isAxiosError(error)) {
-  //       console.error("🛑 Login failed:", error.response?.data || error.message);
+  //       console.error("Login failed:", error.response?.data || error.message);
   //       setMessage("Invalid email or password.");
   //     } else {
-  //       console.error("🛑 Login failed:", error);
+  //       console.error("Login failed:", error);
   //       setMessage("An unexpected error occurred.");
   //     }
   //   } finally {
@@ -76,7 +76,7 @@ const Login: React.FC = () => {
   // };
 
   // const onGoogleLoginSuccess = async (credentialResponse: CredentialResponse) => {
-  //   console.log("✅ Google login successful!", credentialResponse);
+  //   console.log("Google login successful!", credentialResponse);
   //   try {
   //     await googleSignin(credentialResponse);
   //     window.location.replace("/");
@@ -87,7 +87,7 @@ const Login: React.FC = () => {
   // };
 
   // const onGoogleLoginError = () => {
-  //   console.error("🛑 Google login failed!");
+  //   console.error("Google login failed!");
   //   setMessage("Google sign-in failed. Please try again or use email login.");
   // };
 
@@ -103,24 +103,24 @@ const Login: React.FC = () => {
   }
 
   const onLichessLoginSuccess = (data: LichessLoginData) => {
-    console.log("✅ Lichess login successful!", data);
+    console.log("Lichess login successful!", data);
     if (data.accessToken) {
       localStorage.setItem("token", data.accessToken);
       localStorage.setItem("userId", data.userId);
       localStorage.setItem("lichessId", data.lichessId || "");
       window.location.replace("/");
     } else {
-      console.error("🛑 No accessToken received from Lichess!");
+      console.error("No accessToken received from Lichess!");
       setMessage("Lichess login failed. Please try again.");
     }
   };
 
   const onLichessLoginError = (error: { message: string }) => {
-    console.error("🛑 Lichess login failed!", error);
+    console.error("Lichess login failed!", error);
     setMessage("Lichess login failed. Please try again.");
   };
 
-  // react to query params whenever they change
+  
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const token = params.get("token");

@@ -81,11 +81,11 @@ const PaymentForm = ({ onAmountChange }: PaymentFormProps) => {
       setStep(1);
       onAmountChange("");
       
-      // ✅ Redirect to profile to see updated balance
+      // Redirect to profile to see updated balance
       navigate("/profile");
   
     } catch (err) {
-      console.error("❌ Payment failed:", err);
+      console.error("Payment failed:", err);
       toast.error("Failed to complete payment. Please try again.");
     }
   };

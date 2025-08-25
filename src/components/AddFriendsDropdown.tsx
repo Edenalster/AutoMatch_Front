@@ -1,4 +1,3 @@
-// AddFriendsDropdown.tsx
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "../components/ui/button";
 import { UserPlus, Search, Users, Check, X, Clock } from "lucide-react";
@@ -28,17 +27,17 @@ const AddFriendsDropdown: React.FC = () => {
   const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"search" | "requests">("search");
-  const previousRequestCount = useRef(0); // Add this line
+  const previousRequestCount = useRef(0); 
 
   const API_BASE =
     process.env.REACT_APP_API_URL || "https://automatch.cs.colman.ac.il";
 
-  // פונקציה לקבלת טוקן
+
   const getAuthToken = () => {
     return localStorage.getItem("token") || localStorage.getItem("accessToken");
   };
 
-  // חיפוש משתמשים
+ 
   const searchUsers = async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -73,7 +72,6 @@ const AddFriendsDropdown: React.FC = () => {
     }
   };
 
-  // קבלת בקשות ממתינות
   const fetchPendingRequests = async () => {
     try {
       const token = getAuthToken();
@@ -103,11 +101,10 @@ const AddFriendsDropdown: React.FC = () => {
     }
   };
 
-  // שליחת בקשת חברות
   const sendFriendRequest = async (targetUserId: string) => {
     try {
       const token = getAuthToken();
-      console.log("🚀 Sending friend request:", {
+      console.log("Sending friend request:", {
         targetUserId,
         token: token ? "exists" : "missing",
       });
@@ -121,11 +118,10 @@ const AddFriendsDropdown: React.FC = () => {
         body: JSON.stringify({ targetUserId }),
       });
 
-      console.log("📊 Response status:", response.status);
+      console.log("Response status:", response.status);
 
       if (response.ok) {
-        console.log("✅ Friend request sent successfully");
-        // עדכון הסטטוס ברשימת התוצאות
+        console.log("Friend request sent successfully");
         setSearchResults((prev) =>
           prev.map((user) =>
             user._id === targetUserId
@@ -136,24 +132,23 @@ const AddFriendsDropdown: React.FC = () => {
       } else {
         const errorText = await response.text();
         console.error(
-          "❌ Failed to send friend request - Status:",
+          "Failed to send friend request - Status:",
           response.status
         );
-        console.error("❌ Error response:", errorText);
+        console.error("Error response:", errorText);
 
         try {
           const errorJson = JSON.parse(errorText);
-          console.error("❌ Parsed error:", errorJson);
+          console.error("Parsed error:", errorJson);
         } catch (e) {
-          console.error("❌ Could not parse error as JSON");
+          console.error("Could not parse error as JSON");
         }
       }
     } catch (error) {
-      console.error("❌ Network/Request error:", error);
+      console.error("Network/Request error:", error);
     }
   };
 
-  // אישור בקשת חברות
   const acceptFriendRequest = async (requesterId: string) => {
     try {
       const token = getAuthToken();
@@ -176,7 +171,6 @@ const AddFriendsDropdown: React.FC = () => {
     }
   };
 
-  // דחיית בקשת חברות
   const rejectFriendRequest = async (requesterId: string) => {
     try {
       const token = getAuthToken();
@@ -199,7 +193,6 @@ const AddFriendsDropdown: React.FC = () => {
     }
   };
 
-  // חיפוש עם debounce
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchQuery && activeTab === "search") {
@@ -210,7 +203,6 @@ const AddFriendsDropdown: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, activeTab]);
 
-  // טעינת בקשות ממתינות כשנפתח הטאב
   useEffect(() => {
     if (activeTab === "requests") {
       fetchPendingRequests();
@@ -294,7 +286,7 @@ const AddFriendsDropdown: React.FC = () => {
             </button>
           </div>
 
-          {/* תוכן הטאבים */}
+          {}
           {activeTab === "search" && (
             <div>
               <div className="relative mb-4">

@@ -17,7 +17,7 @@ interface Tournament {
   entryFee: number;
   playerIds: string[];
   maxPlayers: number;
-  status: string; // ✅ Add this line
+  status: string; 
 }
 
 const TournamentFilter: React.FC<{
@@ -54,7 +54,7 @@ const LiveTournaments: React.FC = () => {
         const data = await res.json();
         setLiveTournaments(data.tournaments || []);
       } catch (err) {
-        console.error("❌ Failed to fetch live tournaments", err);
+        console.error("Failed to fetch live tournaments", err);
       }
     };
 
@@ -106,7 +106,7 @@ const LiveTournaments: React.FC = () => {
       if (!res.ok) throw new Error("Join failed");
       navigate(`/lobby/${tournamentId}`);
     } catch (err) {
-      console.error("❌ Failed to join tournament:", err);
+      console.error("Failed to join tournament:", err);
       alert("Failed to join tournament.");
     }
   };

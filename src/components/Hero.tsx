@@ -63,16 +63,16 @@ const HeroSection: React.FC = () => {
         setStats({
           activePlayers: data.activePlayers,
           liveGames: data.liveGames,
-          tournamentsCount: liveTournamentCount, // 🟡 override if needed
+          tournamentsCount: liveTournamentCount, 
         });
       } catch (err) {
-        console.error("❌ Failed to fetch stats", err);
+        console.error("Failed to fetch stats", err);
       }
     };
 
     fetchStats(); // initial
-    const interval = setInterval(fetchStats, 2000); // 🔁 every 2s
-    return () => clearInterval(interval); // cleanup
+    const interval = setInterval(fetchStats, 2000); // every 2s
+    return () => clearInterval(interval);
   }, []);
 
   return (

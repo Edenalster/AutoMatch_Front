@@ -31,7 +31,7 @@ const Home = () => {
       <Hero />
       <FeatureSection />
       <PrizePool />
-      {/* Other components */}
+      {}
     </>
   );
 };

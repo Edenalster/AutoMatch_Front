@@ -1,9 +1,8 @@
-// GameStatusTracker.tsx
 import React, { useEffect, useState } from "react";
 
 interface GameState {
   status: string;
-  // Add other game state properties as needed (e.g., winner, etc.)
+ 
 }
 
 interface GameStatusTrackerProps {
@@ -23,7 +22,6 @@ const GameStatusTracker: React.FC<GameStatusTrackerProps> = ({ gameId }) => {
 
       if (data.status === "over") {
         console.log("Game is over");
-        // Here you can update the UI or perform other actions when the game is finished.
       } else {
         console.log("Game is still ongoing");
       }

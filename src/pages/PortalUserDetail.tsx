@@ -78,6 +78,39 @@ interface TournamentHistory {
   winRate: number;
 }
 
+const calculateTotalEarnings = (tournaments: TournamentHistory[]) => {
+  return tournaments.reduce((total, tournament) => {
+    if (tournament.userResult === "won") {
+      return total + (tournament.prizePool || 0);
+    } 
+    else if (tournament.userResult === "eliminated") {
+      return total - (tournament.entryFee || 0);
+    }
+    return total;
+  }, 0);
+};
+
+const TotalEarningsCard = ({ tournaments }: { tournaments: TournamentHistory[] }) => {
+  const totalEarnings = calculateTotalEarnings(tournaments);
+  const isPositive = totalEarnings >= 0;
+  
+  return (
+    <Card className="bg-chess-dark/30 backdrop-blur-md border border-white/10">
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-white/60 text-sm">Total Earnings</p>
+            <p className={`text-2xl font-bold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+              {isPositive ? '' : '-'}${Math.abs(totalEarnings).toLocaleString()}
+            </p>
+          </div>
+          <DollarSign className={`h-8 w-8 ${isPositive ? 'text-green-400' : 'text-red-400'}`} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 const PortalUserDetail = () => {
   const { lichessId } = useParams<{ lichessId: string }>();
   const navigate = useNavigate();
@@ -209,7 +242,6 @@ const PortalUserDetail = () => {
     );
   }
 
-  // Calculate display name
   const displayName =
     user.profile?.firstName && user.profile?.lastName
       ? `${user.profile.firstName} ${user.profile.lastName}`
@@ -246,15 +278,20 @@ const PortalUserDetail = () => {
                   {displayName.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <Badge
-                className={
-                  user.status === "active"
-                    ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
-                    : "bg-slate-500/20 text-slate-400 hover:bg-slate-500/30"
-                }
-              >
-                {user.status === "active" ? "Online" : "Offline"}
-              </Badge>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-lg backdrop-blur-md border border-white/10 bg-chess-dark/30">
+                <div 
+                  className={`w-3 h-3 rounded-full ${
+                    user.status === "active" ? "bg-green-400" : "bg-slate-400"
+                  }`}
+                />
+                <span
+                  className={`font-semibold ${
+                    user.status === "active" ? "text-green-400" : "text-slate-400"
+                  }`}
+                >
+                  {user.status === "active" ? "Online" : "Offline"}
+                </span>
+              </div>
             </div>
 
             {/* User Details */}
@@ -335,23 +372,8 @@ const PortalUserDetail = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-chess-dark/30 backdrop-blur-md border border-white/10">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/60 text-sm">Status</p>
-                <p className="text-lg font-bold text-white">
-                  {user.status === "active" ? "Active" : "Inactive"}
-                </p>
-              </div>
-              <User
-                className={`h-8 w-8 ${
-                  user.status === "active" ? "text-green-400" : "text-slate-400"
-                }`}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        {/* Total Earnings Card */}
+        <TotalEarningsCard tournaments={tournaments} />
 
         <Card
           className={`backdrop-blur-md border ${

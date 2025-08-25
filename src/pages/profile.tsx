@@ -340,7 +340,7 @@ const ProfilePage = () => {
     fetchUserData();
     fetchFriends();
   }, [lichessId]);
-
+  
   if (!user)
     return (
       <div className="mt-80">
